@@ -1,166 +1,152 @@
 /**
- * Mock data module — Settings for the three durations
+ * Mock data — Settings for the three durations
  *
- * Shapes the expected state of the settings card and timer integration.
+ * Shapes the expected state returned by the "get settings" API call.
  * The real implementation replaces only this file.
+ * All mock data lives here — no scattering through components.
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface SettingsValues {
-  work: number;   // minutes
-  short: number;  // minutes
-  long: number;   // minutes
+export interface SettingsDurations {
+  work: number;   // whole minutes, 1–120
+  short: number;  // whole minutes, 1–60
+  long: number;   // whole minutes, 1–120
 }
 
-export type SessionType = 'work' | 'short' | 'long';
+export interface SettingsState {
+  work: number;
+  short: number;
+  long: number;
+}
 
-// ─── Defaults (minutes) ───────────────────────────────────────────────────────
+export type SettingsStatus = 'idle' | 'saving' | 'saved' | 'reset' | 'error';
 
-export const DEFAULT_SETTINGS: SettingsValues = {
+// ─── Default values ──────────────────────────────────────────────────────────
+
+export const DEFAULT_SETTINGS: SettingsDurations = {
   work:  25,
   short:  5,
   long:  15,
 };
 
-// ─── Input constraints (minutes) ─────────────────────────────────────────────
+// ─── Input validation bounds ──────────────────────────────────────────────────
 
-export const INPUT_CONSTRAINTS: Record<keyof SettingsValues, { min: number; max: number }> = {
-  work:  { min: 1, max: 120 },
-  short: { min: 1, max: 60  },
-  long:  { min: 1, max: 120 },
+export const INPUT_BOUNDS = {
+  work:  { min: 1,  max: 120 },
+  short: { min: 1,  max: 60  },
+  long:  { min: 1,  max: 120 },
+} as const;
+
+// ─── Clamp helper ─────────────────────────────────────────────────────────────
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+// ─── Mock idle state ──────────────────────────────────────────────────────────
+
+/**
+ * Default settings state — the "idle" state before any user action.
+ */
+export const MOCK_IDLE_SETTINGS: SettingsState = {
+  work:  DEFAULT_SETTINGS.work,
+  short: DEFAULT_SETTINGS.short,
+  long:  DEFAULT_SETTINGS.long,
 };
 
-// ─── localStorage key ─────────────────────────────────────────────────────────
+// ─── Mock saving state ────────────────────────────────────────────────────────
 
-export const STORAGE_KEY = 'pomodoro:settings';
+/**
+ * Momentary "saving" state while settings are being written.
+ * Transitions to MOCK_SAVED_SETTINGS after a short delay.
+ */
+export const MOCK_SAVING_SETTINGS: SettingsState = {
+  work:  50,
+  short: 10,
+  long:  20,
+};
+
+// ─── Mock saved state ─────────────────────────────────────────────────────────
+
+/**
+ * Settings after a successful save with custom values.
+ */
+export const MOCK_SAVED_SETTINGS: SettingsState = {
+  work:  50,
+  short: 10,
+  long:  20,
+};
+
+// ─── Mock reset state ─────────────────────────────────────────────────────────
+
+/**
+ * Settings restored to defaults after "Reset to defaults".
+ */
+export const MOCK_RESET_SETTINGS: SettingsState = {
+  work:  DEFAULT_SETTINGS.work,
+  short: DEFAULT_SETTINGS.short,
+  long:  DEFAULT_SETTINGS.long,
+};
+
+// ─── Mock error state ─────────────────────────────────────────────────────────
+
+export interface SettingsErrorState {
+  error: true;
+  message: string;
+}
+
+export const MOCK_ERROR_SETTINGS: SettingsErrorState = {
+  error: true,
+  message: 'Could not load settings. Using defaults.',
+};
 
 // ─── Toast messages ───────────────────────────────────────────────────────────
 
-export const TOAST_SAVED  = 'Settings saved — applied to the current session.';
-export const TOAST_RESET = 'Defaults restored';
+export const TOAST_SAVED   = 'Settings saved — applied to the current session.';
+export const TOAST_RESET   = 'Defaults restored.';
+export const TOAST_INVALID = 'Invalid values — using nearest valid settings.';
 
-// ─── Mock state ───────────────────────────────────────────────────────────────
+// ─── Storage key ──────────────────────────────────────────────────────────────
 
-export type SettingsStatus = 'idle' | 'saving' | 'saved' | 'error';
+export const STORAGE_KEY = 'pomodoro:settings';
 
-export interface SettingsState {
-  values: SettingsValues;
-  status: SettingsStatus;
-  errorMessage: string | null;
-}
-
-// Default / idle state
-export const MOCK_IDLE_STATE: SettingsState = {
-  values: DEFAULT_SETTINGS,
-  status: 'idle',
-  errorMessage: null,
-};
-
-// After save (Work = 50)
-export const MOCK_SAVED_50_STATE: SettingsState = {
-  values: { work: 50, short: 5, long: 15 },
-  status: 'saved',
-  errorMessage: null,
-};
-
-// After save (Work = 30, Short = 10, Long = 20)
-export const MOCK_SAVED_CUSTOM_STATE: SettingsState = {
-  values: { work: 30, short: 10, long: 20 },
-  status: 'saved',
-  errorMessage: null,
-};
-
-// Loading state
-export const MOCK_LOADING_STATE: SettingsState = {
-  values: { work: 0, short: 0, long: 0 },
-  status: 'idle',
-  errorMessage: null,
-};
-
-// Error state
-export const MOCK_ERROR_STATE: SettingsState = {
-  values: DEFAULT_SETTINGS,
-  status: 'error',
-  errorMessage: 'Could not load settings. Please refresh.',
-};
-
-// ─── Validation helpers ───────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Clamp a numeric value to the valid range for each field.
- * Used both for live input and on-save validation.
+ * Validates and clamps the three duration values.
+ * Non-numeric, empty, or out-of-range values are clamped to nearest bound.
  */
-export function clampValue(field: keyof SettingsValues, value: number): number {
-  const { min, max } = INPUT_CONSTRAINTS[field];
-  if (isNaN(value)) return min;
-  if (value < min)  return min;
-  if (value > max)  return max;
-  return Math.round(value); // whole minutes only
+export function validateAndClamp(raw: Partial<SettingsDurations>): SettingsDurations {
+  const work  = clamp(raw.work  ?? DEFAULT_SETTINGS.work,  INPUT_BOUNDS.work.min,  INPUT_BOUNDS.work.max);
+  const short = clamp(raw.short ?? DEFAULT_SETTINGS.short, INPUT_BOUNDS.short.min, INPUT_BOUNDS.short.max);
+  const long  = clamp(raw.long  ?? DEFAULT_SETTINGS.long,  INPUT_BOUNDS.long.min,  INPUT_BOUNDS.long.max);
+  return { work, short, long };
 }
 
 /**
- * Validate and clamp all three settings, returning the corrected values.
- * Any NaN, empty-string equivalent, or out-of-range value is clamped.
+ * Reads settings from localStorage, falling back to defaults on any failure.
+ * Invalid, missing, or out-of-range values fall back to defaults.
  */
-export function validateSettings(raw: Partial<SettingsValues>): SettingsValues {
-  return {
-    work:  clampValue('work',  raw.work  ?? DEFAULT_SETTINGS.work),
-    short: clampValue('short', raw.short ?? DEFAULT_SETTINGS.short),
-    long:  clampValue('long',  raw.long  ?? DEFAULT_SETTINGS.long),
-  };
-}
-
-/**
- * Load settings from localStorage, falling back to defaults.
- * Returns null on any parse/storage error so the caller can decide how to handle.
- */
-export function loadSettings(): SettingsValues | null {
+export function loadFromStorage(): SettingsDurations {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      'work' in (parsed as object) &&
-      'short' in (parsed as object) &&
-      'long' in (parsed as object)
-    ) {
-      const obj = parsed as SettingsValues;
-      const validated = validateSettings(obj);
-      // Check if any value was out of range → fall back to defaults per TIMER-010 AC-2
-      const hadOOB =
-        obj.work  !== validated.work  ||
-        obj.short !== validated.short ||
-        obj.long  !== validated.long;
-      if (hadOOB) return null; // fall back to defaults
-      return validated;
-    }
-    return null;
+    if (!raw) return { ...DEFAULT_SETTINGS };
+    const parsed = JSON.parse(raw) as Partial<SettingsDurations>;
+    return validateAndClamp(parsed);
   } catch {
-    return null;
+    return { ...DEFAULT_SETTINGS };
   }
 }
 
 /**
- * Save settings to localStorage. Silently swallows errors (private mode, quota).
+ * Writes settings to localStorage. Wrapped in try/catch for private/quota errors.
  */
-export function saveSettings(values: SettingsValues): void {
+export function saveToStorage(settings: SettingsDurations): boolean {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    return true;
   } catch {
-    // Swallow: TIMER-010 AC-3 — nothing should crash.
-  }
-}
-
-/**
- * Reset to defaults: remove the localStorage key.
- */
-export function resetToDefaults(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Swallow.
+    return false;
   }
 }
