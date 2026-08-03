@@ -1,157 +1,163 @@
 /**
- * Mock data module for Session Cycle with Long Break.
+ * Mock data module — Session cycle with long break
  *
- * Shape is the contract the backend must satisfy when this story's
- * API stage is implemented.  All mock data lives here — the component
- * layer imports nothing else from this file.
+ * This file shapes the expected state of the timer.
+ * The real implementation replaces only this file.
  */
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
+// Session type enum
 export type SessionType = 'work' | 'short' | 'long';
 
+// Session metadata
 export interface SessionMeta {
   name: string;
-  label: string;
   hint: string;
-  pillClass: string;      // CSS class for the session-type pill
-  ringClass: string;      // CSS class modifier for the progress-ring wrapper
+  pillClass: string;        // CSS class for the pill colour
+  ringClass: string;        // CSS class for the ring colour
   toastVariant: 'tomato' | 'green' | 'blue';
 }
-
-export interface TimerSettings {
-  work: number;   // minutes
-  short: number;  // minutes
-  long: number;   // minutes
-}
-
-export interface CycleState {
-  /** 0-3: how many work sessions have completed in the current 4-session cycle */
-  position: number;
-  /** Total sessions in the cycle (always 4) */
-  total: number;
-}
-
-export interface SessionCycleState {
-  type: SessionType;
-  remainingSeconds: number;
-  totalSeconds: number;
-  running: boolean;
-  cycle: CycleState;
-  settings: TimerSettings;
-}
-
-// ─── Static metadata (mirrors the design system tokens) ─────────────────────
 
 export const SESSION_META: Record<SessionType, SessionMeta> = {
   work: {
     name: 'Work',
-    label: 'Work',
     hint: 'Stay focused',
-    pillClass: '',          // tomato — the base class (no modifier)
-    ringClass: '',           // tomato — the base class (no modifier)
+    pillClass: 'bg-tomato-soft text-tomato',
+    ringClass: 'text-primary',
     toastVariant: 'tomato',
   },
   short: {
     name: 'Short Break',
-    label: 'Short Break',
     hint: 'Grab a coffee',
-    pillClass: 'is-green',
-    ringClass: 'is-green',
+    pillClass: 'bg-short-soft text-short',
+    ringClass: 'text-short',
     toastVariant: 'green',
   },
   long: {
     name: 'Long Break',
-    label: 'Long Break',
     hint: 'Take a real break',
-    pillClass: 'is-blue',
-    ringClass: 'is-blue',
+    pillClass: 'bg-long-soft text-long',
+    ringClass: 'text-long',
     toastVariant: 'blue',
   },
 };
 
-// ─── Mock initial state ───────────────────────────────────────────────────────
-
-/** Initial state the timer renders with before any interaction. */
-export const MOCK_INITIAL_STATE: SessionCycleState = {
-  type: 'work',
-  remainingSeconds: 25 * 60,
-  totalSeconds: 25 * 60,
-  running: false,
-  cycle: { position: 0, total: 4 },
-  settings: { work: 25, short: 5, long: 15 },
-};
-
-// ─── Mock advance scenarios (for development / QA preview) ──────────────────
-
-/** After completing the 1st work session → Short Break */
-export const MOCK_AFTER_WORK_1: SessionCycleState = {
-  type: 'short',
-  remainingSeconds: 5 * 60,
-  totalSeconds: 5 * 60,
-  running: false,
-  cycle: { position: 1, total: 4 },
-  settings: { work: 25, short: 5, long: 15 },
-};
-
-/** Mid-cycle: after completing 2 work sessions → Work, session 3 of 4 */
-export const MOCK_MID_CYCLE: SessionCycleState = {
-  type: 'work',
-  remainingSeconds: 25 * 60,
-  totalSeconds: 25 * 60,
-  running: false,
-  cycle: { position: 2, total: 4 },
-  settings: { work: 25, short: 5, long: 15 },
-};
-
-/** After completing 3rd work session → Short Break (position 3/4) */
-export const MOCK_AFTER_WORK_3: SessionCycleState = {
-  type: 'short',
-  remainingSeconds: 5 * 60,
-  totalSeconds: 5 * 60,
-  running: false,
-  cycle: { position: 3, total: 4 },
-  settings: { work: 25, short: 5, long: 15 },
-};
-
-/** After completing 4th work session → Long Break */
-export const MOCK_AFTER_WORK_4: SessionCycleState = {
-  type: 'long',
-  remainingSeconds: 15 * 60,
-  totalSeconds: 15 * 60,
-  running: false,
-  cycle: { position: 4, total: 4 },
-  settings: { work: 25, short: 5, long: 15 },
-};
-
-/** After Long Break completes → cycle restarts at Work, session 1 of 4 */
-export const MOCK_AFTER_LONG_BREAK: SessionCycleState = {
-  type: 'work',
-  remainingSeconds: 25 * 60,
-  totalSeconds: 25 * 60,
-  running: false,
-  cycle: { position: 0, total: 4 },
-  settings: { work: 25, short: 5, long: 15 },
-};
-
-// ─── Toast messages ───────────────────────────────────────────────────────────
-
+// Toast messages per transition
 export interface ToastMessage {
-  message: string;
+  text: string;
   variant: 'tomato' | 'green' | 'blue';
 }
 
-export const TOAST_WORK_COMPLETE_SHORT: ToastMessage = {
-  message: 'Work complete — time for a short break!',
-  variant: 'green',
+export const TOAST_MESSAGES: Record<string, ToastMessage> = {
+  'work->short': { text: 'Work complete — time for a short break!', variant: 'green' },
+  'work->long':  { text: 'Cycle complete! You earned a long break.', variant: 'blue' },
+  'short->work': { text: 'Break over — back to work.', variant: 'tomato' },
+  'long->work':  { text: 'Break over — back to work.', variant: 'tomato' },
 };
 
-export const TOAST_WORK_COMPLETE_LONG: ToastMessage = {
-  message: 'Cycle complete! You earned a long break.',
-  variant: 'blue',
+// Default durations (seconds)
+export const DEFAULT_DURATIONS: Record<SessionType, number> = {
+  work:  25 * 60, // 1500
+  short:  5 * 60, // 300
+  long:  15 * 60, // 900
 };
 
-export const TOAST_BREAK_OVER: ToastMessage = {
-  message: 'Break over — back to work.',
-  variant: 'tomato',
+// Timer state shape (what the "API" would return)
+export interface TimerState {
+  sessionType: SessionType;
+  remainingSeconds: number;
+  totalSeconds: number;
+  isRunning: boolean;
+  cyclePosition: number;   // 1–4: which session in the 4-session cycle
+  workSessionsDone: number; // completed work sessions in current cycle (0–3)
+  isPaused: boolean;
+}
+
+// Mock initial state
+export const MOCK_INITIAL_STATE: TimerState = {
+  sessionType: 'work',
+  remainingSeconds: DEFAULT_DURATIONS.work,
+  totalSeconds: DEFAULT_DURATIONS.work,
+  isRunning: false,
+  cyclePosition: 1,
+  workSessionsDone: 0,
+  isPaused: true,
+};
+
+// Cycle dot state
+export type DotState = 'done' | 'active' | 'empty';
+
+export interface CycleDotState {
+  position: number; // 1–4
+  state: DotState;
+}
+
+// Helper: derive dot states from cycle position and work sessions done
+export function deriveCycleDots(
+  cyclePosition: number,
+  workSessionsDone: number
+): CycleDotState[] {
+  return [1, 2, 3, 4].map((pos) => {
+    if (pos <= workSessionsDone) {
+      return { position: pos, state: 'done' as DotState };
+    }
+    if (pos === cyclePosition) {
+      return { position: pos, state: 'active' as DotState };
+    }
+    return { position: pos, state: 'empty' as DotState };
+  });
+}
+
+// Session label
+export function cycleLabelText(position: number): string {
+  return `Session ${position} of 4`;
+}
+
+// Format seconds to MM:SS
+export function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Advance to next session type based on cycle rules
+export function getNextSessionType(
+  currentType: SessionType,
+  workSessionsDone: number
+): SessionType {
+  if (currentType === 'work') {
+    // After 4th work session → long break
+    if (workSessionsDone >= 3) return 'long';
+    return 'short';
+  }
+  // After any break → back to work
+  return 'work';
+}
+
+// Get toast message for a transition
+export function getToastMessage(
+  fromType: SessionType,
+  toType: SessionType
+): ToastMessage | null {
+  const key = `${fromType}->${toType}`;
+  return TOAST_MESSAGES[key] ?? null;
+}
+
+// Loading state mock
+export const MOCK_LOADING_STATE: TimerState = {
+  ...MOCK_INITIAL_STATE,
+  remainingSeconds: 0,
+  totalSeconds: 0,
+  isRunning: false,
+  isPaused: false,
+};
+
+// Error state mock (would come from failed API call)
+export interface ErrorState {
+  error: true;
+  message: string;
+}
+
+export const MOCK_ERROR_STATE: ErrorState = {
+  error: true,
+  message: 'Could not load timer settings. Please refresh.',
 };
