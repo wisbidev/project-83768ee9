@@ -1,0 +1,39 @@
+/* Toast — bottom-centre notification with colour-coded dot */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translate(-50%, 24px);
+  background: var(--color-ink, #2B2B33);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px 22px;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -12px rgba(43, 43, 51, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+  z-index: 50;
+}
+
+.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.tomato .dot { background: var(--color-tomato, #E4572E); }
+.green  .dot { background: var(--color-short, #2F9E77); }
+.blue   .dot { background: var(--color-long, #3B6FE0); }
+.ink    .dot { background: #fff; }
