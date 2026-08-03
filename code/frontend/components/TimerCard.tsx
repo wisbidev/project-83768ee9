@@ -1,165 +1,217 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  buildInitialState,
-  formatTime,
   SESSION_META,
   DEFAULT_WORK_DURATION_MINUTES,
+  formatTime,
   type SessionType,
+  type TimerResult,
 } from '@/lib/mock/countdown-display-and-session-type';
+import styles from './TimerCard.module.css';
 
-// Radius constants for the SVG progress ring
-const RING_RADIUS = 118;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS; // ≈ 741.4
+// Ring geometry — matches design/index.html
+const RING_SIZE = 260;
+const RING_R = 118;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R; // ≈ 741.76
 
 interface TimerCardProps {
-  initialSessionType?: SessionType;
+  /** Override the initial result — used by tests to inject loading/error states */
+  initialResult?: TimerResult;
 }
 
-export default function TimerCard({
-  initialSessionType = 'work',
-}: TimerCardProps) {
-  const [sessionType, setSessionType] = useState<SessionType>(initialSessionType);
+export default function TimerCard({ initialResult }: TimerCardProps) {
+  const [sessionType] = useState<SessionType>('work');
   const [remainingSeconds, setRemainingSeconds] = useState<number>(
-    initialSessionType === 'work'
-      ? DEFAULT_WORK_DURATION_MINUTES * 60
-      : initialSessionType === 'short'
-      ? 5 * 60
-      : 15 * 60
+    DEFAULT_WORK_DURATION_MINUTES * 60
   );
-  const [totalSeconds, setTotalSeconds] = useState<number>(remainingSeconds);
+  const [result, setResult] = useState<TimerResult | null>(
+    initialResult ?? null
+  );
 
-  // Safe load from localStorage — fall back to defaults on error
+  // Safe load from localStorage on mount
   useEffect(() => {
+    if (initialResult !== undefined) return; // test override: skip fetch
+
     try {
       const raw = localStorage.getItem('pomodoro_settings');
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Use stored work duration if valid
         if (parsed?.workDuration && Number.isInteger(parsed.workDuration) && parsed.workDuration > 0) {
-          const dur = parsed.workDuration;
-          setTotalSeconds(dur * 60);
-          setRemainingSeconds(dur * 60);
+          const dur = parsed.workDuration * 60;
+          setRemainingSeconds(dur);
         }
       }
     } catch {
-      // Corrupted storage — fall through to defaults
+      // Corrupted storage — fall through to defaults; page never crashes
     }
-  }, []);
+  }, [initialResult]);
 
   const meta = SESSION_META[sessionType];
 
-  // Progress: 1 = full ring (100 % remaining), 0 = empty
+  // Total = remaining when idle (not ticking yet)
+  const totalSeconds = remainingSeconds;
   const progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 1;
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
 
-  // Ring colour per session type
-  const ringStroke =
+  const strokeColor =
     sessionType === 'short'
       ? '#2F9E77'
       : sessionType === 'long'
       ? '#3B6FE0'
       : '#E4572E';
 
-  // Pill colour classes per session type
-  const pillBgClass =
+  const progressClass =
     sessionType === 'short'
-      ? 'bg-[var(--color-short-soft,#DDF0E8)] text-[#2F9E77]'
+      ? styles.progressGreen
       : sessionType === 'long'
-      ? 'bg-[var(--color-long-soft,#DDE7FB)] text-[#3B6FE0]'
-      : 'bg-[var(--color-tomato-soft,#FCE4D8)] text-[#C74420]';
+      ? styles.progressBlue
+      : '';
 
   const timeDisplay = formatTime(remainingSeconds);
 
+  // ── State renders ─────────────────────────────────────────────────────────
+
+  if (result && 'loading' in result) {
+    return (
+      <section className={styles.card} aria-label="Timer" aria-busy="true">
+        <LoadingSkeleton />
+      </section>
+    );
+  }
+
+  if (result && 'error' in result) {
+    return (
+      <section className={styles.card} aria-label="Timer">
+        <ErrorState message={result.message} onRetry={() => setResult(null)} />
+      </section>
+    );
+  }
+
+  // ── Default: Work / 25:00 ──────────────────────────────────────────────────
+
   return (
     <section
-      className="card timer-card flex flex-col items-center text-center relative overflow-hidden rounded-[24px] border border-[var(--color-line,#EFE6DC)] bg-white px-6 pt-10 pb-8 shadow-[0_18px_50px_-18px_rgba(228,87,46,0.25)]"
+      className={`${styles.card} ${styles.isPaused}`}
       aria-label="Timer"
     >
-      {/* Background radial glow */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(320px 180px at 50% 0%, rgba(228, 87, 46, 0.06), transparent 70%)',
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Session-type pill */}
+      {/* Session pill */}
       <span
-        className={`session-pill relative z-10 inline-flex items-center gap-2 rounded-full bg-[var(--color-tomato-soft,#FCE4D8)] px-4 py-1.5 text-xs font-extrabold uppercase tracking-widest transition-colors duration-[350ms] ${pillBgClass}`}
+        className={`session-pill ${sessionType === 'short' ? 'is-green' : sessionType === 'long' ? 'is-blue' : ''}`}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          padding: '7px 16px',
+          borderRadius: '999px',
+          background:
+            sessionType === 'short'
+              ? '#DDF0E8'
+              : sessionType === 'long'
+              ? '#DDE7FB'
+              : '#FCE4D8',
+          color:
+            sessionType === 'short'
+              ? '#2F9E77'
+              : sessionType === 'long'
+              ? '#3B6FE0'
+              : '#C74420',
+          position: 'relative',
+          zIndex: 1,
+        }}
       >
         <span
-          className="h-1.5 w-1.5 rounded-full bg-current"
+          className="dot"
+          style={{
+            width: '7px',
+            height: '7px',
+            borderRadius: '50%',
+            background: 'currentColor',
+          }}
           aria-hidden="true"
         />
         <span id="sessionName">{meta.label}</span>
       </span>
 
-      {/* Progress ring */}
-      <div
-        className={`ring-wrap relative mt-6 mb-2 w-[260px] h-[260px]`}
-        style={{ width: 260, height: 260 }}
-        aria-hidden="true"
-      >
-        <svg
-          viewBox="0 0 260 260"
-          className="h-full w-full"
-          style={{ transform: 'rotate(-90deg)' }}
-          role="img"
-          aria-label={`Time remaining ring, ${formatTime(remainingSeconds)} remaining`}
-        >
-          {/* Track */}
+      {/* Ring */}
+      <div className={styles.ringWrap} aria-hidden="true">
+        <svg viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`} role="img" aria-label={`Time remaining ring, ${timeDisplay}`}>
+          <circle className={styles.track} cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R} />
           <circle
-            cx={130}
-            cy={130}
-            r={RING_RADIUS}
-            fill="none"
-            stroke="var(--color-track,#F1E7DB)"
-            strokeWidth={10}
-          />
-          {/* Progress */}
-          <circle
-            cx={130}
-            cy={130}
-            r={RING_RADIUS}
-            fill="none"
-            stroke={ringStroke}
-            strokeWidth={10}
-            strokeLinecap="round"
+            className={`${styles.progress} ${progressClass}`}
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_R}
+            stroke={strokeColor}
             strokeDasharray={RING_CIRCUMFERENCE}
             strokeDashoffset={dashOffset}
-            style={{
-              transition: 'stroke-dashoffset 1s linear, stroke 0.35s ease',
-              filter:
-                sessionType === 'short'
-                  ? 'drop-shadow(0 0 6px rgba(47, 158, 119, 0.35))'
-                  : sessionType === 'long'
-                  ? 'drop-shadow(0 0 6px rgba(59, 111, 224, 0.35))'
-                  : 'drop-shadow(0 0 6px rgba(228, 87, 46, 0.35))',
-            }}
           />
         </svg>
 
-        {/* Time centre overlay */}
-        <div className="time-center absolute inset-0 flex flex-col items-center justify-center gap-1">
+        {/* Time centre */}
+        <div className={styles.center}>
           <div
-            className="time text-[58px] font-extrabold tracking-tight leading-none tabular-nums"
+            className={styles.time}
             aria-live="polite"
             aria-atomic="true"
           >
             {timeDisplay}
           </div>
-          <div className="time-sub text-[13px] text-[var(--color-muted,#9C918A)] font-semibold min-h-[18px]">
-            {meta.hint}
-          </div>
+          <div className={styles.hint}>{meta.hint}</div>
+          <span className={styles.pausedBadge}>Paused</span>
         </div>
       </div>
-
-      {/* Controls placeholder — implemented in story 2 */}
-      {/* (start/pause/reset buttons will be added by the controls story) */}
     </section>
+  );
+}
+
+// ── State sub-components ───────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  return (
+    <div className="flex flex-col items-center gap-6 py-10" aria-hidden="true">
+      {/* Pill skeleton */}
+      <div className="w-28 h-6 rounded-full bg-[#F1E7DB] animate-pulse" />
+      {/* Ring skeleton */}
+      <div className="w-[260px] h-[260px] rounded-full bg-[#F1E7DB] animate-pulse" />
+      {/* Time skeleton */}
+      <div className="w-40 h-14 rounded-xl bg-[#F1E7DB] animate-pulse mt-4" />
+    </div>
+  );
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-5 py-12">
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#E4572E"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <p className="text-sm text-ink max-w-[280px] text-center leading-relaxed">
+        {message}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-extrabold text-white shadow-primary transition-colors hover:bg-[#C74420] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        Try again
+      </button>
+    </div>
   );
 }
