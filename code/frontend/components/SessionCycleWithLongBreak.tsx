@@ -1,9 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  MOCK_INITIAL_STATE,
-  SESSION_META,
   type TimerState,
   type SessionType,
   type CycleDotState,
@@ -28,6 +26,17 @@ const TOKENS = {
   'tomato-deep': '#C74420',
   'ink-deep':    '#1d1d23',
 } as const;
+
+// Default initial state
+const INITIAL_STATE: TimerState = {
+  sessionType: 'work',
+  remainingSeconds: DEFAULT_DURATIONS.work,
+  totalSeconds: DEFAULT_DURATIONS.work,
+  isRunning: false,
+  cyclePosition: 1,
+  workSessionsDone: 0,
+  isPaused: true,
+};
 
 function Dot({ state }: { state: DotState }) {
   const base = 'inline-block w-3 h-3 rounded-full transition-all duration-300 flex-shrink-0';
@@ -76,7 +85,6 @@ function CycleDots({ dots, label }: CycleDotsProps) {
 interface ProgressRingProps {
   progress: number; // 0–1 fraction remaining
   sessionType: SessionType;
-  isRunning: boolean;
   remainingFormatted: string;
   hint: string;
   isPaused: boolean;
@@ -85,7 +93,6 @@ interface ProgressRingProps {
 function ProgressRing({
   progress,
   sessionType,
-  isRunning,
   remainingFormatted,
   hint,
   isPaused,
@@ -177,15 +184,13 @@ function Toast({ message, variant, visible }: ToastProps) {
         'px-5 py-3 rounded-2xl',
         'opacity-0 pointer-events-none transition-all duration-300',
         'max-w-[calc(100vw-40px)] text-center',
-        visible ? 'opacity-100' : 'translate-y-6',
-        visible ? '' : 'translate-y-0',
       ]
         .filter(Boolean)
         .join(' ')}
       style={{
         boxShadow: '0 16px 40px -12px rgba(43,43,51,0.5)',
         transform: visible ? 'translate(-50%, 0)' : 'translate(-50%, 24px)',
-        transition: 'opacity 0.3s ease, transform 0.3s ease',
+        opacity: visible ? 1 : 0,
       }}
     >
       {variant && (
@@ -200,9 +205,30 @@ function Toast({ message, variant, visible }: ToastProps) {
   );
 }
 
+// Session hints per type
+const HINTS: Record<SessionType, string> = {
+  work:  'Stay focused',
+  short: 'Grab a coffee',
+  long:  'Take a real break',
+};
+
+// Pill colour classes per session type
+const PILL_CLASSES: Record<SessionType, string> = {
+  work:  'bg-[#FCE4D8] text-[#C74420]',
+  short: 'bg-[#DDF0E8] text-[#2F9E77]',
+  long:  'bg-[#DDE7FB] text-[#3B6FE0]',
+};
+
+// Session display names
+const SESSION_NAMES: Record<SessionType, string> = {
+  work:  'Work',
+  short: 'Short Break',
+  long:  'Long Break',
+};
+
 export default function SessionCycleWithLongBreak() {
-  // Timer state driven by mock
-  const [timerState, setTimerState] = useState<TimerState>(MOCK_INITIAL_STATE);
+  // Timer state
+  const [timerState, setTimerState] = useState<TimerState>(INITIAL_STATE);
 
   // Toast visibility
   const [toastVisible, setToastVisible] = useState(false);
@@ -210,7 +236,6 @@ export default function SessionCycleWithLongBreak() {
   const [toastVariant, setToastVariant] = useState<'tomato' | 'green' | 'blue' | null>(null);
 
   // Derived values
-  const meta = SESSION_META[timerState.sessionType];
   const progress =
     timerState.totalSeconds > 0
       ? timerState.remainingSeconds / timerState.totalSeconds
@@ -218,12 +243,15 @@ export default function SessionCycleWithLongBreak() {
   const cycleDots = deriveCycleDots(timerState.cyclePosition, timerState.workSessionsDone);
   const cycleLabel = cycleLabelText(timerState.cyclePosition);
   const remainingFormatted = formatTime(timerState.remainingSeconds);
+  const sessionName = SESSION_NAMES[timerState.sessionType];
+  const sessionHint = HINTS[timerState.sessionType];
+  const pillClass = PILL_CLASSES[timerState.sessionType];
 
   // Show toast helper (auto-hides after 3.5s)
   const showToast = useCallback(
-    (msg: string, var_: 'tomato' | 'green' | 'blue') => {
+    (msg: string, variant: 'tomato' | 'green' | 'blue') => {
       setToastMessage(msg);
-      setToastVariant(var_);
+      setToastVariant(variant);
       setToastVisible(true);
       setTimeout(() => setToastVisible(false), 3500);
     },
@@ -236,14 +264,23 @@ export default function SessionCycleWithLongBreak() {
     const interval = setInterval(() => {
       setTimerState((prev) => {
         if (prev.remainingSeconds <= 1) {
-          // Session ended — advance to next session
+          // Work sessions done BEFORE this transition
+          const workDoneBefore = prev.sessionType === 'work' ? prev.workSessionsDone : prev.workSessionsDone;
           const newWorkSessionsDone =
             prev.sessionType === 'work' ? prev.workSessionsDone + 1 : prev.workSessionsDone;
-          const nextType = getNextSessionType(prev.sessionType, prev.workSessionsDone);
+          const nextType = getNextSessionType(prev.sessionType, workDoneBefore);
           const nextDuration = DEFAULT_DURATIONS[nextType];
           const toastMsg = getToastMessage(prev.sessionType, nextType);
 
           if (toastMsg) showToast(toastMsg.text, toastMsg.variant);
+
+          // Cycle position: advance when going back to work
+          let nextCyclePosition = prev.cyclePosition;
+          if (nextType === 'work' && prev.sessionType === 'long') {
+            nextCyclePosition = 1; // cycle reset
+          } else if (nextType === 'work') {
+            nextCyclePosition = prev.cyclePosition + 1;
+          }
 
           return {
             ...prev,
@@ -256,12 +293,7 @@ export default function SessionCycleWithLongBreak() {
               nextType === 'work' && prev.sessionType === 'long'
                 ? 0
                 : newWorkSessionsDone,
-            cyclePosition:
-              nextType === 'work' && prev.sessionType === 'long'
-                ? 1
-                : nextType === 'work'
-                ? prev.cyclePosition + 1
-                : prev.cyclePosition,
+            cyclePosition: nextCyclePosition,
           };
         }
         return { ...prev, remainingSeconds: prev.remainingSeconds - 1 };
@@ -296,26 +328,24 @@ export default function SessionCycleWithLongBreak() {
     }));
   };
 
-  // Pill colour classes per session type
-  const pillClass =
-    timerState.sessionType === 'short'
-      ? 'bg-[#DDF0E8] text-[#2F9E77]'
-      : timerState.sessionType === 'long'
-      ? 'bg-[#DDE7FB] text-[#3B6FE0]'
-      : 'bg-[#FCE4D8] text-[#C74420]';
-
   return (
     <>
       {/* Timer Card */}
       <section
         className="bg-white rounded-3xl border border-[#EFE6DC] relative overflow-hidden w-full max-w-sm mx-auto flex flex-col items-center text-center"
-        style={{ boxShadow: '0 18px 50px -18px rgba(228,87,46,0.25)', padding: '34px 24px 26px' }}
+        style={{
+          boxShadow: '0 18px 50px -18px rgba(228,87,46,0.25)',
+          padding: '34px 24px 26px',
+        }}
         aria-label="Pomodoro timer"
       >
         {/* Ambient gradient overlay */}
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(320px 180px at 50% 0%, rgba(228,87,46,0.06), transparent 70%)' }}
+          style={{
+            background:
+              'radial-gradient(320px 180px at 50% 0%, rgba(228,87,46,0.06), transparent 70%)',
+          }}
         />
 
         {/* Session pill */}
@@ -323,7 +353,7 @@ export default function SessionCycleWithLongBreak() {
           className={`inline-flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-widest px-4 py-1.5 rounded-full transition-all duration-300 z-10 ${pillClass}`}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-          <span>{meta.name}</span>
+          <span>{sessionName}</span>
         </div>
 
         {/* Progress ring */}
@@ -331,9 +361,8 @@ export default function SessionCycleWithLongBreak() {
           <ProgressRing
             progress={progress}
             sessionType={timerState.sessionType}
-            isRunning={timerState.isRunning}
             remainingFormatted={remainingFormatted}
-            hint={meta.hint}
+            hint={sessionHint}
             isPaused={timerState.isPaused}
           />
         </div>
@@ -368,9 +397,7 @@ export default function SessionCycleWithLongBreak() {
             onClick={timerState.isRunning ? handlePause : handleStart}
             className={[
               'inline-flex items-center gap-2.5 px-9 py-3.5 rounded-full font-extrabold text-base transition-all duration-200 active:scale-95',
-              timerState.isRunning
-                ? 'bg-ink text-white'
-                : 'text-white',
+              timerState.isRunning ? 'bg-ink text-white' : 'text-white',
             ].join(' ')}
             style={
               timerState.isRunning
