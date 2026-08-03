@@ -96,7 +96,7 @@
   flex-shrink: 0;
 }
 
-/* ── Actions row ──────────────────────────────────────────────────────────── */
+/* ── Actions row ─────────────────────────────────────────────────────────── */
 
 .actions {
   display: flex;
@@ -107,7 +107,7 @@
   flex-wrap: wrap;
 }
 
-/* ── Ghost (Reset) button ──────────────────────────────────────────────────── */
+/* ── Ghost (Reset) button ─────────────────────────────────────────────────── */
 
 .ghostBtn {
   background: none;
@@ -132,7 +132,12 @@
   outline-offset: 2px;
 }
 
-/* ── Primary (Save) button ─────────────────────────────────────────────────── */
+.ghostBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Primary (Save) button ───────────────────────────────────────────────── */
 
 .primaryBtn {
   background: var(--color-ink, #2B2B33);
@@ -143,7 +148,9 @@
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease;
 }
 
 .primaryBtn:hover {
@@ -160,14 +167,13 @@
   outline-offset: 2px;
 }
 
-/* Saving state — slightly dimmed while processing */
 .primaryBtn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
   transform: none;
 }
 
-/* ── Loading state ─────────────────────────────────────────────────────────── */
+/* ── Loading state ───────────────────────────────────────────────────────── */
 
 .loading .fieldGrid {
   opacity: 0.5;
@@ -179,12 +185,12 @@
   cursor: not-allowed;
 }
 
-/* ── Error state ───────────────────────────────────────────────────────────── */
+/* ── Error state ──────────────────────────────────────────────────────────── */
 
 .errorBanner {
   margin-top: 14px;
   padding: 10px 14px;
-  background: var(--color-soft-tomato, #FCE4D8);
+  background: #fce4d8;
   border: 1px solid var(--color-primary, #E4572E);
   border-radius: 10px;
   font-size: 13px;
@@ -192,7 +198,13 @@
   font-weight: 600;
 }
 
-/* ── Reduced motion ───────────────────────────────────────────────────────── */
+/* ── Focus ring ───────────────────────────────────────────────────────────── */
+
+.numberInput:focus-visible {
+  outline: none;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .inputWrap,
