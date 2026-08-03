@@ -7,8 +7,6 @@ import {
   type SessionType,
   type TimerResult,
   fetchInitialTimer,
-  fetchTimerLoading,
-  fetchTimerError,
 } from '@/lib/mock/countdown-display-and-session-type';
 
 // ── Ring geometry (matches design/index.html) ────────────────────────────────
@@ -36,11 +34,11 @@ interface TimerCardProps {
 
 export default function TimerCard({ initialResult }: TimerCardProps) {
   const [sessionType, setSessionType]       = useState<SessionType>('work');
-  const [remainingSeconds, setRemaining]    = useState(DURATIONS.work);
-  const [status, setStatus]                 = useState<'idle' | 'running' | 'paused'>('idle');
-  const [result, setResult]                = useState<TimerResult | null>(initialResult ?? null);
+  const [remainingSeconds, setRemaining]     = useState(DURATIONS.work);
+  const [status, setStatus]                  = useState<'idle' | 'running' | 'paused'>('idle');
+  const [result, setResult]                  = useState<TimerResult | null>(initialResult ?? null);
 
-  // Load timer state on mount (unless already provided)
+  // Load timer state on mount (unless already provided via props)
   if (result === null && initialResult === undefined) {
     fetchInitialTimer()
       .then(res => setResult(res))
@@ -53,10 +51,10 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
 
   // ── Derived values ─────────────────────────────────────────────────────────
 
-  const totalSeconds   = DURATIONS[sessionType];
-  const progress       = remainingSeconds / totalSeconds; // 1 = full, 0 = empty
-  const strokeOffset   = RING_CIRCUMFERENCE * (1 - progress);
-  const meta           = SESSION_META[sessionType];
+  const totalSeconds = DURATIONS[sessionType];
+  const progress     = remainingSeconds / totalSeconds; // 1 = full, 0 = empty
+  const strokeOffset = RING_CIRCUMFERENCE * (1 - progress);
+  const meta         = SESSION_META[sessionType];
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +63,7 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
       className="w-full max-w-sm mx-auto bg-white rounded-[24px] border border-[#EFE6DC] shadow-[0_18px_50px_-18px_rgba(228,87,46,0.25)] px-6 pt-9 pb-7 flex flex-col items-center text-center relative overflow-hidden"
       aria-label="Timer"
     >
-      {/* Ambient radial gradient */}
+      {/* Ambient radial gradient — colour follows session type */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -97,9 +95,7 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
       <LoadingOrErrorOrContent resolved={resolved}>
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
           <div
-            className="text-[58px] font-extrabold tracking-tight leading-none tabular-nums"
-            style={{ color: 'var(--color-ink)' }}
-            aria-live="off"
+            className="text-[58px] font-extrabold tracking-tight leading-none tabular-nums text-ink"
           >
             {formatTime(remainingSeconds)}
           </div>
@@ -109,7 +105,7 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
         </div>
       </LoadingOrErrorOrContent>
 
-      {/* ── Paused badge (shown when status is idle/paused) ───────────────── */}
+      {/* ── Paused badge (shown when timer is not running) ───────────────── */}
       <LoadingOrErrorOrContent resolved={resolved}>
         {status !== 'running' && (
           <div className="absolute bottom-[148px] text-[11px] font-extrabold uppercase tracking-widest text-[#9C918A] bg-[#F3EDE5] px-3 py-1 rounded-full">
@@ -121,7 +117,7 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function SessionPill({
   sessionType,
@@ -137,22 +133,14 @@ function SessionPill({
       ? 'bg-[#DDE7FB] text-[#3B6FE0]'
       : 'bg-[#FCE4D8] text-[#C74420]';
 
+  const dotColor =
+    sessionType === 'short' ? '#2F9E77' : sessionType === 'long' ? '#3B6FE0' : '#C74420';
+
   return (
     <span
       className={`inline-flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.08em] px-4 py-[7px] rounded-full z-10 transition-colors duration-300 ${colorClass}`}
     >
-      <span
-        className="w-[7px] h-[7px] rounded-full"
-        style={{
-          background:
-            sessionType === 'short'
-              ? '#2F9E77'
-              : sessionType === 'long'
-              ? '#3B6FE0'
-              : '#C74420',
-        }}
-        aria-hidden="true"
-      />
+      <span className="w-[7px] h-[7px] rounded-full bg-current" aria-hidden="true" />
       {meta.label}
     </span>
   );
@@ -168,18 +156,12 @@ function ProgressRing({
   circumference: number;
 }) {
   const strokeColor =
-    sessionType === 'short'
-      ? '#2F9E77'
-      : sessionType === 'long'
-      ? '#3B6FE0'
-      : '#E4572E';
+    sessionType === 'short' ? '#2F9E77' : sessionType === 'long' ? '#3B6FE0' : '#E4572E';
 
   const filterId = `ring-glow-${sessionType}`;
 
   return (
-    <div
-      className={`relative w-[260px] h-[260px] my-5${sessionType === 'short' ? ' is-green' : sessionType === 'long' ? ' is-blue' : ''}`}
-    >
+    <div className="relative w-[260px] h-[260px] my-5">
       <svg
         viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
         className="w-full h-full"
@@ -207,7 +189,7 @@ function ProgressRing({
           stroke="#F1E7DB"
           strokeWidth={10}
         />
-        {/* Progress */}
+        {/* Progress arc */}
         <circle
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
@@ -241,14 +223,19 @@ function LoadingOrErrorOrContent({
   if ('error' in resolved) {
     return (
       <div className="flex flex-col items-center gap-3 py-10">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E4572E" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="40" height="40" viewBox="0 0 24 24" fill="none"
+          stroke="#E4572E" strokeWidth={1.5}
+          strokeLinecap="round" strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
         <p className="text-[#9C918A] text-sm font-medium">{resolved.message}</p>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => { window.location.reload(); }}
           className="mt-2 text-sm font-bold text-[#E4572E] underline underline-offset-2"
         >
           Retry
