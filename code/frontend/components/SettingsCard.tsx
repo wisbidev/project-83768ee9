@@ -1,393 +1,328 @@
 'use client';
 
 /**
- * Settings card — "Settings for the three durations" (plan item 6).
+ * SettingsCard — Duration settings card
  *
- * All values come from design tokens defined in `design/design-system.md`.
- * The three inputs let the user change Work / Short Break / Long Break durations.
- * Saving or resetting restarts the current session at the new duration of its
- * own type and persists the values under `pomodoro:settings` in localStorage.
+ * Allows the user to change Work / Short Break / Long Break durations.
+ * Saves to and loads from localStorage (`pomodoro:settings`).
+ *
+ * When settings change, the timer is stopped and restarted at the new duration
+ * of the current session type. This is done via the `onSettingsChange` callback.
+ *
+ * Pressing Enter inside any input saves, same as the Save button.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_SETTINGS } from '../lib/mock/settings-for-the-three-durations';
-import type { SettingsData } from '../lib/mock/settings-for-the-three-durations';
-import { showToast } from './Toast';
+import {
+  DEFAULT_SETTINGS,
+  INPUT_CONSTRAINTS,
+  TOAST_RESET,
+  TOAST_SAVED,
+  type SettingsValues,
+  clampValue,
+  loadSettings,
+  resetToDefaults,
+  saveSettings,
+  validateSettings,
+} from '../lib/mock/settings-for-the-three-durations';
+import Toast from './Toast';
+import styles from './SettingsCard.module.css';
 
-// ── Validation constants ──────────────────────────────────────────────────────
+// ─── Props ───────────────────────────────────────────────────────────────────
 
-const LIMITS = {
-  work:  { min: 1,  max: 120 },
-  short: { min: 1,  max: 60  },
-  long:  { min: 1,  max: 120 },
-} as const;
-
-type SessionKey = keyof SettingsData;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Math.round(value)));
+export interface SettingsCardProps {
+  /**
+   * The current session type — used to restart the timer at the new duration.
+   */
+  currentSessionType?: 'work' | 'short' | 'long';
+  /**
+   * Called when settings change (save or reset).
+   * Receives the new duration values in minutes for the current session type.
+   */
+  onSettingsChange?: (newMinutes: number) => void;
+  /**
+   * Whether the controls (save/reset) should be disabled.
+   * Useful when the parent timer is loading.
+   */
+  disabled?: boolean;
 }
 
-// ── Settings restart event ────────────────────────────────────────────────────
-// The timer listens for this event and restarts the current session at the new
-// duration.  The event carries the session type so the timer knows which field
-// changed.
+// ─── Component ────────────────────────────────────────────────────────────────
 
-export interface SessionRestartEvent {
-  type: 'work' | 'short' | 'long';
-  minutes: number;
-}
+export default function SettingsCard({
+  currentSessionType = 'work',
+  onSettingsChange,
+  disabled = false,
+}: SettingsCardProps) {
+  // Form input values (minutes, may be stale until save)
+  const [work,  setWork]  = useState<number>(DEFAULT_SETTINGS.work);
+  const [short, setShort] = useState<number>(DEFAULT_SETTINGS.short);
+  const [long,  setLong]  = useState<number>(DEFAULT_SETTINGS.long);
 
-export function dispatchSessionRestart(data: SessionRestartEvent): void {
-  document.dispatchEvent(
-    new CustomEvent<SessionRestartEvent>('settings:restart-session', {
-      detail: data,
-    }),
-  );
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
-
-export default function SettingsCard() {
-  const [values, setValues] = useState<SettingsData>({ ...DEFAULT_SETTINGS });
+  // Loading state — true while reading localStorage on mount
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  // Saving state — briefly true while persisting
   const [saving, setSaving] = useState(false);
-  const inputRefs = useRef<Record<SessionKey, HTMLInputElement | null>>({
-    work: null,
-    short: null,
-    long: null,
-  });
 
-  // ── Load settings on mount ─────────────────────────────────────────────────
+  // Error message for UI feedback
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Toast state
+  const [toastMsg, setToastMsg]   = useState<string | null>(null);
+  const [toastVariant, setToastVariant] = useState<'tomato' | 'green' | 'blue' | 'ink'>('ink');
+  const [toastKey, setToastKey]   = useState(0);
+
+  // Toast auto-hide timer ref
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stable onSettingsChange ref so the callbacks below never go stale
+  const onSettingsChangeRef = useRef(onSettingsChange);
+  useEffect(() => { onSettingsChangeRef.current = onSettingsChange; }, [onSettingsChange]);
+
+  // ── Load settings on mount ──────────────────────────────────────────────
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        // Dynamic import avoids server-side localStorage access.
-        const { loadSettings } = await import(
-          '../lib/mock/settings-for-the-three-durations'
-        );
-        setValues(loadSettings());
-      } catch {
-        setError('Unable to load settings. Please try again.');
-      } finally {
-        setLoading(false);
+    try {
+      const saved = loadSettings();
+      if (saved) {
+        setWork(saved.work);
+        setShort(saved.short);
+        setLong(saved.long);
       }
+    } finally {
+      setLoading(false);
     }
-    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Input change ───────────────────────────────────────────────────────────
+  // ── Show toast helper ────────────────────────────────────────────────────
+  const showToast = useCallback((msg: string, variant: 'tomato' | 'green' | 'blue' | 'ink' = 'ink') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastKey(k => k + 1);
+    setToastMsg(msg);
+    setToastVariant(variant);
+    // Toast component auto-hides via its own timer
+  }, []);
 
-  function handleChange(key: SessionKey, raw: string) {
-    const num = parseInt(raw, 10);
-    setValues((prev) => ({
-      ...prev,
-      [key]: isNaN(num) ? prev[key] : num,
-    }));
-  }
+  // ── Save ─────────────────────────────────────────────────────────────────
+  const handleSave = useCallback(() => {
+    if (disabled || saving) return;
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+    // Validate + clamp all fields
+    const raw: Partial<SettingsValues> = { work, short, long };
+    const validated = validateSettings(raw);
 
-  const handleSave = useCallback(
-    async (currentType: SessionKey = 'work') => {
-      setSaving(true);
-      try {
-        // Clamp all three values to their valid ranges.
-        const clamped: SettingsData = {
-          work: clamp(values.work, LIMITS.work.min, LIMITS.work.max),
-          short: clamp(values.short, LIMITS.short.min, LIMITS.short.max),
-          long: clamp(values.long, LIMITS.long.min, LIMITS.long.max),
-        };
+    // Sync UI to clamped values
+    setWork(validated.work);
+    setShort(validated.short);
+    setLong(validated.long);
 
-        // Persist to localStorage.
-        const { saveSettings } = await import(
-          '../lib/mock/settings-for-the-three-durations'
-        );
-        saveSettings(clamped);
-
-        // Update local state with clamped values (so inputs reflect clamped
-        // values after save).
-        setValues(clamped);
-
-        // Sync input display values to clamped values.
-        (inputRefs.current.work  as HTMLInputElement).value = String(clamped.work);
-        (inputRefs.current.short as HTMLInputElement).value = String(clamped.short);
-        (inputRefs.current.long  as HTMLInputElement).value = String(clamped.long);
-
-        // Restart the current session at the new duration of its own type.
-        dispatchSessionRestart({
-          type: currentType,
-          minutes: clamped[currentType],
-        });
-
-        showToast('Settings saved — applied to the current session.', 'ink');
-      } catch {
-        showToast('Unable to save settings. Please try again.', 'tomato');
-      } finally {
-        setSaving(false);
-      }
-    },
-    [values],
-  );
-
-  // ── Reset to defaults ───────────────────────────────────────────────────────
-
-  async function handleReset(currentType: SessionKey = 'work') {
     setSaving(true);
-    try {
-      const { resetToDefaults } = await import(
-        '../lib/mock/settings-for-the-three-durations'
-      );
-      const defaults = resetToDefaults();
-      setValues(defaults);
+    setErrorMsg(null);
 
-      (inputRefs.current.work  as HTMLInputElement).value = String(defaults.work);
-      (inputRefs.current.short as HTMLInputElement).value = String(defaults.short);
-      (inputRefs.current.long  as HTMLInputElement).value = String(defaults.long);
+    // Persist
+    saveSettings(validated);
 
-      dispatchSessionRestart({ type: currentType, minutes: defaults[currentType] });
+    // Notify parent to restart timer at new duration for current session type
+    const newDuration =
+      currentSessionType === 'work'  ? validated.work
+      : currentSessionType === 'short' ? validated.short
+      :                                    validated.long;
 
-      showToast('Defaults restored', 'ink');
-    } catch {
-      showToast('Unable to reset. Please try again.', 'tomato');
-    } finally {
-      setSaving(false);
-    }
-  }
+    // Fire callback synchronously so the timer restarts immediately
+    setSaving(false);
+    onSettingsChangeRef.current?.(newDuration);
 
-  // ── Enter key ───────────────────────────────────────────────────────────────
+    showToast(TOAST_SAVED, 'ink');
+  }, [disabled, saving, work, short, long, currentSessionType, showToast]);
 
-  function handleKeyDown(
-    e: React.KeyboardEvent<HTMLInputElement>,
-    currentType: SessionKey,
-  ) {
+  // ── Reset to defaults ────────────────────────────────────────────────────
+  const handleReset = useCallback(() => {
+    if (disabled || saving) return;
+
+    setSaving(true);
+    setErrorMsg(null);
+
+    resetToDefaults();
+
+    const def = DEFAULT_SETTINGS;
+    setWork(def.work);
+    setShort(def.short);
+    setLong(def.long);
+
+    const newDuration =
+      currentSessionType === 'work'  ? def.work
+      : currentSessionType === 'short' ? def.short
+      :                                    def.long;
+
+    setSaving(false);
+    onSettingsChangeRef.current?.(newDuration);
+
+    showToast(TOAST_RESET, 'ink');
+  }, [disabled, saving, currentSessionType, showToast]);
+
+  // ── Enter key inside input → save ────────────────────────────────────────
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      void handleSave(currentType);
+      handleSave();
     }
-  }
+  }, [handleSave]);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Live validation (show clamped preview without persisting) ────────────
+  const handleWorkChange  = (v: string) => setWork(clampValue('work',  Number(v)));
+  const handleShortChange = (v: string) => setShort(clampValue('short', Number(v)));
+  const handleLongChange  = (v: string) => setLong(clampValue('long',  Number(v)));
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <section
-      className="bg-white border border-[#EFE6DC] rounded-[24px] shadow-[0_18px_50px_-18px_rgba(228,87,46,0.25)] p-7"
-      id="settings"
-      aria-label="Settings"
-    >
-      {/* Heading */}
-      <h2 className="text-[17px] font-extrabold tracking-tight flex items-center gap-2 text-ink">
-        {/* Gear icon */}
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#9C918A"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" />
-        </svg>
-        Settings
-      </h2>
-
-      {/* Subtitle */}
-      <p className="text-[13px] text-[#9C918A] mt-1">
-        Durations are saved in this browser and applied to the current and next
-        sessions.
-      </p>
-
-      {/* Loading state */}
-      {loading && (
-        <div
-          className="mt-5 flex items-center justify-center gap-2 text-[13px] text-[#9C918A] py-8"
-          aria-live="polite"
-          aria-label="Loading settings"
-        >
+    <>
+      <section
+        className={styles.card}
+        aria-label="Settings"
+        aria-busy={loading || saving}
+      >
+        {/* Heading */}
+        <h2 className={styles.heading}>
           <svg
-            className="animate-spin"
-            width="16"
-            height="16"
+            className={styles.headingIcon}
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
             aria-hidden="true"
           >
-            <path d="M21 12a9 9 0 1 1-6.2-8.5" />
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" />
           </svg>
-          Loading settings…
-        </div>
-      )}
+          Settings
+        </h2>
+        <p className={styles.subtitle}>
+          Durations are saved in this browser and applied to the current and next sessions.
+        </p>
 
-      {/* Error state */}
-      {!loading && error && (
-        <div
-          className="mt-5 rounded-xl bg-[#FCE4D8] text-primary text-[13px] font-semibold px-4 py-3"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Settings form */}
-      {!loading && !error && (
-        <>
-          {/* Field grid — 3 columns on wide, 1 column on narrow (≤480px) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
-            {/* Work */}
-            <div className="field">
-              <label
-                htmlFor="inpWork"
-                className="block text-[12px] font-bold text-[#9C918A] mb-1.5 tracking-wide"
-              >
-                Work
-              </label>
-              <div
-                className="flex items-center gap-2 bg-cream border border-[#EFE6DC]
-                            rounded-xl px-3 py-2.5
-                            focus-within:border-primary focus-within:bg-white
-                            transition-colors duration-200"
-              >
-                <input
-                  id="inpWork"
-                  ref={(el) => { inputRefs.current.work = el; }}
-                  type="number"
-                  min={LIMITS.work.min}
-                  max={LIMITS.work.max}
-                  inputMode="numeric"
-                  defaultValue={values.work}
-                  disabled={saving}
-                  onChange={(e) => handleChange('work', e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, 'work')}
-                  className="w-full bg-transparent text-[17px] font-extrabold
-                             text-ink font-variant-numeric outline-none
-                             disabled:opacity-50"
-                  aria-label="Work session duration in minutes"
-                />
-                <span className="text-[13px] font-bold text-[#9C918A] shrink-0">
-                  min
-                </span>
-              </div>
-            </div>
-
-            {/* Short break */}
-            <div className="field">
-              <label
-                htmlFor="inpShort"
-                className="block text-[12px] font-bold text-[#9C918A] mb-1.5 tracking-wide"
-              >
-                Short break
-              </label>
-              <div
-                className="flex items-center gap-2 bg-cream border border-[#EFE6DC]
-                            rounded-xl px-3 py-2.5
-                            focus-within:border-primary focus-within:bg-white
-                            transition-colors duration-200"
-              >
-                <input
-                  id="inpShort"
-                  ref={(el) => { inputRefs.current.short = el; }}
-                  type="number"
-                  min={LIMITS.short.min}
-                  max={LIMITS.short.max}
-                  inputMode="numeric"
-                  defaultValue={values.short}
-                  disabled={saving}
-                  onChange={(e) => handleChange('short', e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, 'short')}
-                  className="w-full bg-transparent text-[17px] font-extrabold
-                             text-ink font-variant-numeric outline-none
-                             disabled:opacity-50"
-                  aria-label="Short break duration in minutes"
-                />
-                <span className="text-[13px] font-bold text-[#9C918A] shrink-0">
-                  min
-                </span>
-              </div>
-            </div>
-
-            {/* Long break */}
-            <div className="field">
-              <label
-                htmlFor="inpLong"
-                className="block text-[12px] font-bold text-[#9C918A] mb-1.5 tracking-wide"
-              >
-                Long break
-              </label>
-              <div
-                className="flex items-center gap-2 bg-cream border border-[#EFE6DC]
-                            rounded-xl px-3 py-2.5
-                            focus-within:border-primary focus-within:bg-white
-                            transition-colors duration-200"
-              >
-                <input
-                  id="inpLong"
-                  ref={(el) => { inputRefs.current.long = el; }}
-                  type="number"
-                  min={LIMITS.long.min}
-                  max={LIMITS.long.max}
-                  inputMode="numeric"
-                  defaultValue={values.long}
-                  disabled={saving}
-                  onChange={(e) => handleChange('long', e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, 'long')}
-                  className="w-full bg-transparent text-[17px] font-extrabold
-                             text-ink font-variant-numeric outline-none
-                             disabled:opacity-50"
-                  aria-label="Long break duration in minutes"
-                />
-                <span className="text-[13px] font-bold text-[#9C918A] shrink-0">
-                  min
-                </span>
-              </div>
+        {/* Field grid */}
+        <div className={styles.fieldGrid} role="group" aria-label="Session durations">
+          {/* Work */}
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="inpWork">
+              Work
+            </label>
+            <div className={styles.inputWrap}>
+              <input
+                id="inpWork"
+                type="number"
+                className={styles.input}
+                value={loading ? '' : work}
+                min={INPUT_CONSTRAINTS.work.min}
+                max={INPUT_CONSTRAINTS.work.max}
+                inputMode="numeric"
+                aria-label="Work duration in minutes"
+                disabled={disabled || saving || loading}
+                onChange={e => handleWorkChange(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+              />
+              <span className={styles.unit} aria-hidden="true">min</span>
             </div>
           </div>
 
-          {/* Actions row */}
-          <div className="flex items-center justify-between gap-3 mt-5 flex-wrap">
-            {/* Reset to defaults — ghost / underlined */}
-            <button
-              type="button"
-              id="defaultsBtn"
-              disabled={saving}
-              onClick={() => void handleReset('work')}
-              className="bg-transparent border-none text-[13px] font-bold
-                         text-[#9C918A] underline underline-offset-2
-                         hover:text-primary transition-colors duration-200
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         py-1 px-0"
-            >
-              Reset to defaults
-            </button>
-
-            {/* Save settings — primary ink button */}
-            <button
-              type="button"
-              id="saveBtn"
-              disabled={saving}
-              onClick={() => void handleSave('work')}
-              className="bg-ink text-white border-none rounded-xl
-                         px-6 py-3 text-[14px] font-extrabold
-                         hover:bg-primary hover:-translate-y-px
-                         active:scale-[0.98]
-                         transition-all duration-150
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         disabled:hover:translate-y-0"
-            >
-              {saving ? 'Saving…' : 'Save settings'}
-            </button>
+          {/* Short break */}
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="inpShort">
+              Short break
+            </label>
+            <div className={styles.inputWrap}>
+              <input
+                id="inpShort"
+                type="number"
+                className={styles.input}
+                value={loading ? '' : short}
+                min={INPUT_CONSTRAINTS.short.min}
+                max={INPUT_CONSTRAINTS.short.max}
+                inputMode="numeric"
+                aria-label="Short break duration in minutes"
+                disabled={disabled || saving || loading}
+                onChange={e => handleShortChange(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+              />
+              <span className={styles.unit} aria-hidden="true">min</span>
+            </div>
           </div>
-        </>
+
+          {/* Long break */}
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="inpLong">
+              Long break
+            </label>
+            <div className={styles.inputWrap}>
+              <input
+                id="inpLong"
+                type="number"
+                className={styles.input}
+                value={loading ? '' : long}
+                min={INPUT_CONSTRAINTS.long.min}
+                max={INPUT_CONSTRAINTS.long.max}
+                inputMode="numeric"
+                aria-label="Long break duration in minutes"
+                disabled={disabled || saving || loading}
+                onChange={e => handleLongChange(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+              />
+              <span className={styles.unit} aria-hidden="true">min</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.ghostBtn}
+            id="defaultsBtn"
+            disabled={disabled || saving || loading}
+            onClick={handleReset}
+            aria-label="Reset to defaults"
+          >
+            Reset to defaults
+          </button>
+
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            id="saveBtn"
+            disabled={disabled || saving || loading}
+            onClick={handleSave}
+            aria-label="Save settings"
+          >
+            {saving && <span className={styles.spinner} aria-hidden="true" />}
+            Save settings
+          </button>
+        </div>
+
+        {/* Error message */}
+        {errorMsg && (
+          <p className={styles.errorMsg} role="alert">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {errorMsg}
+          </p>
+        )}
+      </section>
+
+      {/* Toast */}
+      {toastMsg && (
+        <Toast
+          key={toastKey}
+          message={toastMsg}
+          variant={toastVariant}
+          duration={3000}
+        />
       )}
-    </section>
+    </>
   );
 }
