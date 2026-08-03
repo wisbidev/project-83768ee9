@@ -3,9 +3,8 @@
 // Do NOT add browser APIs, React state, or event handlers to this file.
 
 import DemoSessionEndTimer from '@/components/DemoSessionEndTimer';
-import SessionEndNotifier from '@/components/SessionEndNotifier';
 import NotificationStatus from '@/components/NotificationStatus';
-import type { SessionEndPayload } from '@/components/SessionEndNotifier';
+import SessionEndNotifierWrapper from '@/components/SessionEndNotifierWrapper';
 import { SESSION_LABELS } from '@/lib/mock/end-of-session-sound-and-notification';
 
 export default function Page() {
@@ -27,13 +26,10 @@ export default function Page() {
         <NotificationStatus />
       </div>
 
-      {/* Background manager: handles chime playback and notification dispatch */}
-      <SessionEndNotifier
-        onSessionEnd={(payload: SessionEndPayload) => {
-          // Integration point for story 3's session-cycle advance.
-          // No-op here; story 3 wires the real cycle logic.
-        }}
-      />
+      {/* Background manager: handles chime playback and notification dispatch.
+          Wrapped in a Client Component so page.tsx (Server) never passes a
+          function prop. */}
+      <SessionEndNotifierWrapper />
     </main>
   );
 }
