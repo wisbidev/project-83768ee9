@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Brand tokens ────────────────────────────────────────────────────────────
+   From SRS §5 / design spec.  These are the only colours in the product.
+   Do not add arbitrary palette values here.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --color-primary: #E4572E;  /* tomato — Work session                */
+  --color-cream:   #FBF6EF;  /* page background                      */
+  --color-ink:     #2B2B33;  /* body text, running Pause button       */
+  --color-short:   #2F9E77;  /* Short Break session                  */
+  --color-long:    #3B6FE0;  /* Long Break session                    */
+}
+
+/* ── Base reset ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: system-ui, sans-serif;
+  color: var(--color-ink);
+  background-color: var(--color-cream);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Focus styles ───────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── Custom scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 3px;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
