@@ -13,15 +13,24 @@ import {
   formatTime,
   getNextSessionType,
   getToastMessage,
-  TOAST_MESSAGES,
   DEFAULT_DURATIONS,
 } from '../lib/mock/session-cycle-with-long-break';
 
 const RING_RADIUS = 118;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+// Inline design tokens — hex values from design spec, no external deps needed
+const TOKENS = {
+  'tomato-soft': '#FCE4D8',
+  'tomato-glow': 'rgba(228,87,46,0.35)',
+  'short-glow':  'rgba(47,158,119,0.35)',
+  'long-glow':   'rgba(59,111,224,0.35)',
+  'tomato-deep': '#C74420',
+  'ink-deep':    '#1d1d23',
+} as const;
+
 function Dot({ state }: { state: DotState }) {
-  const base = 'w-3 h-3 rounded-full transition-all duration-300';
+  const base = 'inline-block w-3 h-3 rounded-full transition-all duration-300 flex-shrink-0';
   if (state === 'done') {
     return (
       <span
@@ -33,7 +42,8 @@ function Dot({ state }: { state: DotState }) {
   if (state === 'active') {
     return (
       <span
-        className={`${base} bg-primary shadow-[0_0_0_4px_var(--color-tomato-soft)]`}
+        className={`${base} bg-primary`}
+        style={{ boxShadow: `0 0 0 4px ${TOKENS['tomato-soft']}` }}
         aria-hidden="true"
       />
     );
@@ -48,7 +58,11 @@ interface CycleDotsProps {
 
 function CycleDots({ dots, label }: CycleDotsProps) {
   return (
-    <div className="flex flex-col items-center gap-2.5 mt-5 z-10" role="group" aria-label="Session cycle progress">
+    <div
+      className="flex flex-col items-center gap-2.5 mt-5 z-10"
+      role="group"
+      aria-label="Session cycle progress"
+    >
       <span className="text-[13px] text-muted font-semibold">{label}</span>
       <div className="flex gap-2.5">
         {dots.map((dot) => (
@@ -76,20 +90,24 @@ function ProgressRing({
   hint,
   isPaused,
 }: ProgressRingProps) {
-  const meta = SESSION_META[sessionType];
   const strokeDashoffset = RING_CIRCUMFERENCE * (1 - progress);
 
-  const ringWrapClass = [
-    'relative w-[260px] h-[260px]',
-    sessionType === 'short' ? 'text-short' : '',
-    sessionType === 'long'  ? 'text-long'  : 'text-primary',
-    isRunning ? 'ring-running' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const strokeColor =
+    sessionType === 'short'
+      ? '#2F9E77'
+      : sessionType === 'long'
+      ? '#3B6FE0'
+      : '#E4572E';
+
+  const glowColor =
+    sessionType === 'short'
+      ? TOKENS['short-glow']
+      : sessionType === 'long'
+      ? TOKENS['long-glow']
+      : TOKENS['tomato-glow'];
 
   return (
-    <div className={ringWrapClass}>
+    <div className="relative w-[260px] h-[260px]">
       <svg
         viewBox="0 0 260 260"
         className="w-full h-full rotate-[-90deg]"
@@ -102,7 +120,7 @@ function ProgressRing({
           cy="130"
           r={RING_RADIUS}
           fill="none"
-          stroke="var(--color-track)"
+          stroke="#F1E7DB"
           strokeWidth="10"
         />
         {/* Progress */}
@@ -111,33 +129,26 @@ function ProgressRing({
           cy="130"
           r={RING_RADIUS}
           fill="none"
-          stroke="currentColor"
+          stroke={strokeColor}
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={RING_CIRCUMFERENCE}
           strokeDashoffset={strokeDashoffset}
           className="transition-all duration-1000 linear"
-          style={{
-            filter:
-              sessionType === 'work'
-                ? 'drop-shadow(0 0 6px rgba(228,87,46,0.35))'
-                : sessionType === 'short'
-                ? 'drop-shadow(0 0 6px rgba(47,158,119,0.35))'
-                : 'drop-shadow(0 0 6px rgba(59,111,224,0.35))',
-          }}
+          style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}
         />
       </svg>
 
       {/* Centre content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-        <span className="text-[58px] font-extrabold tracking-tighter font-mono leading-none tabular-nums">
+        <span className="text-[58px] font-extrabold tracking-tighter tabular-nums leading-none text-ink">
           {remainingFormatted}
         </span>
         <span className="text-[13px] text-muted font-semibold min-h-[18px]">
           {hint}
         </span>
         {isPaused && (
-          <span className="mt-0.5 text-[11px] font-extrabold uppercase tracking-widest text-muted bg-paused px-2.5 py-0.5 rounded-full">
+          <span className="mt-0.5 text-[11px] font-extrabold uppercase tracking-widest text-muted bg-[#F3EDE5] px-2.5 py-0.5 rounded-full">
             Paused
           </span>
         )}
@@ -153,29 +164,34 @@ interface ToastProps {
 }
 
 function Toast({ message, variant, visible }: ToastProps) {
+  const dotColor =
+    variant === 'green' ? '#2F9E77' : variant === 'blue' ? '#3B6FE0' : '#E4572E';
+
   return (
     <div
       role="status"
       aria-live="polite"
       className={[
-        'fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-6',
+        'fixed left-1/2 bottom-6 -translate-x-1/2',
         'bg-ink text-white text-sm font-semibold',
-        'px-5 py-3 rounded-2xl shadow-toast',
+        'px-5 py-3 rounded-2xl',
         'opacity-0 pointer-events-none transition-all duration-300',
         'max-w-[calc(100vw-40px)] text-center',
-        visible ? 'opacity-100 translate-y-0' : '',
+        visible ? 'opacity-100' : 'translate-y-6',
+        visible ? '' : 'translate-y-0',
       ]
         .filter(Boolean)
         .join(' ')}
+      style={{
+        boxShadow: '0 16px 40px -12px rgba(43,43,51,0.5)',
+        transform: visible ? 'translate(-50%, 0)' : 'translate(-50%, 24px)',
+        transition: 'opacity 0.3s ease, transform 0.3s ease',
+      }}
     >
       {variant && (
         <span
-          className={[
-            'inline-block w-2 h-2 rounded-full mr-2 align-middle',
-            variant === 'tomato' ? 'bg-primary' : '',
-            variant === 'green'  ? 'bg-short'   : '',
-            variant === 'blue'   ? 'bg-long'    : '',
-          ].join(' ')}
+          className="inline-block w-2 h-2 rounded-full mr-2 align-middle"
+          style={{ backgroundColor: dotColor }}
           aria-hidden="true"
         />
       )}
@@ -195,18 +211,19 @@ export default function SessionCycleWithLongBreak() {
 
   // Derived values
   const meta = SESSION_META[timerState.sessionType];
-  const progress = timerState.totalSeconds > 0
-    ? timerState.remainingSeconds / timerState.totalSeconds
-    : 1;
+  const progress =
+    timerState.totalSeconds > 0
+      ? timerState.remainingSeconds / timerState.totalSeconds
+      : 1;
   const cycleDots = deriveCycleDots(timerState.cyclePosition, timerState.workSessionsDone);
   const cycleLabel = cycleLabelText(timerState.cyclePosition);
   const remainingFormatted = formatTime(timerState.remainingSeconds);
 
-  // Show toast helper
+  // Show toast helper (auto-hides after 3.5s)
   const showToast = useCallback(
-    (message: string, variant: 'tomato' | 'green' | 'blue') => {
-      setToastMessage(message);
-      setToastVariant(variant);
+    (msg: string, var_: 'tomato' | 'green' | 'blue') => {
+      setToastMessage(msg);
+      setToastVariant(var_);
       setToastVisible(true);
       setTimeout(() => setToastVisible(false), 3500);
     },
@@ -226,19 +243,14 @@ export default function SessionCycleWithLongBreak() {
           const nextDuration = DEFAULT_DURATIONS[nextType];
           const toastMsg = getToastMessage(prev.sessionType, nextType);
 
-          if (toastMsg) {
-            setToastMessage(toastMsg.text);
-            setToastVariant(toastMsg.variant);
-            setToastVisible(true);
-            setTimeout(() => setToastVisible(false), 3500);
-          }
+          if (toastMsg) showToast(toastMsg.text, toastMsg.variant);
 
           return {
             ...prev,
             sessionType: nextType,
             remainingSeconds: nextDuration,
             totalSeconds: nextDuration,
-            isRunning: false, // starts paused
+            isRunning: false, // starts paused after advance
             isPaused: true,
             workSessionsDone:
               nextType === 'work' && prev.sessionType === 'long'
@@ -257,7 +269,7 @@ export default function SessionCycleWithLongBreak() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timerState.isRunning]);
+  }, [timerState.isRunning, showToast]);
 
   const handleStart = () => {
     setTimerState((prev) => ({
@@ -284,26 +296,32 @@ export default function SessionCycleWithLongBreak() {
     }));
   };
 
-  const pillClass = [
-    'inline-flex items-center gap-2',
-    'text-[13px] font-extrabold uppercase tracking-widest',
-    'px-4 py-1.5 rounded-full',
-    'transition-all duration-300',
-    meta.pillClass,
-  ].join(' ');
+  // Pill colour classes per session type
+  const pillClass =
+    timerState.sessionType === 'short'
+      ? 'bg-[#DDF0E8] text-[#2F9E77]'
+      : timerState.sessionType === 'long'
+      ? 'bg-[#DDE7FB] text-[#3B6FE0]'
+      : 'bg-[#FCE4D8] text-[#C74420]';
 
   return (
     <>
       {/* Timer Card */}
       <section
-        className="bg-white rounded-3xl border border-line shadow-timer p-8 pt-7 pb-6 flex flex-col items-center text-center relative overflow-hidden w-full max-w-sm mx-auto"
+        className="bg-white rounded-3xl border border-[#EFE6DC] relative overflow-hidden w-full max-w-sm mx-auto flex flex-col items-center text-center"
+        style={{ boxShadow: '0 18px 50px -18px rgba(228,87,46,0.25)', padding: '34px 24px 26px' }}
         aria-label="Pomodoro timer"
       >
-        {/* Ambient gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(320px_180px_at_50%_0%,rgba(228,87,46,0.06),transparent_70%)]" />
+        {/* Ambient gradient overlay */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: 'radial-gradient(320px 180px at 50% 0%, rgba(228,87,46,0.06), transparent 70%)' }}
+        />
 
         {/* Session pill */}
-        <div className={pillClass}>
+        <div
+          className={`inline-flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-widest px-4 py-1.5 rounded-full transition-all duration-300 z-10 ${pillClass}`}
+        >
           <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
           <span>{meta.name}</span>
         </div>
@@ -322,30 +340,43 @@ export default function SessionCycleWithLongBreak() {
 
         {/* Controls */}
         <div className="flex items-center gap-4 mt-1 z-10">
-          {/* Reset */}
+          {/* Reset button */}
           <button
             onClick={handleReset}
-            className="w-13 h-13 rounded-full border border-line bg-white text-muted hover:text-primary hover:border-primary transition-all duration-200 active:scale-95 flex items-center justify-center"
+            className="w-13 h-13 rounded-full border border-[#EFE6DC] bg-white text-muted hover:text-[#C74420] hover:border-[#C74420] transition-all duration-200 active:scale-95 flex items-center justify-center focus-visible:outline-primary focus-visible:outline focus-visible:outline-offset-2"
             aria-label="Reset timer"
             title="Reset (R)"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M3 12a9 9 0 1 0 3-6.7" />
               <path d="M3 4v5h5" />
             </svg>
           </button>
 
-          {/* Start / Pause */}
+          {/* Start / Pause button */}
           <button
             onClick={timerState.isRunning ? handlePause : handleStart}
             className={[
-              'inline-flex items-center gap-2.5 px-9 py-3.5',
-              'rounded-full font-extrabold text-base',
-              'transition-all duration-200 active:scale-95',
+              'inline-flex items-center gap-2.5 px-9 py-3.5 rounded-full font-extrabold text-base transition-all duration-200 active:scale-95',
               timerState.isRunning
-                ? 'bg-ink text-white shadow-dark'
-                : 'bg-primary text-white shadow-primary',
+                ? 'bg-ink text-white'
+                : 'text-white',
             ].join(' ')}
+            style={
+              timerState.isRunning
+                ? { boxShadow: '0 12px 26px -12px rgba(43,43,51,0.5)' }
+                : { backgroundColor: '#E4572E', boxShadow: '0 12px 26px -10px rgba(228,87,46,0.55)' }
+            }
             aria-pressed={timerState.isRunning}
           >
             {timerState.isRunning ? (
@@ -371,7 +402,7 @@ export default function SessionCycleWithLongBreak() {
         <CycleDots dots={cycleDots} label={cycleLabel} />
       </section>
 
-      {/* Toast */}
+      {/* Toast notification */}
       <Toast message={toastMessage} variant={toastVariant} visible={toastVisible} />
     </>
   );
