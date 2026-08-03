@@ -3,21 +3,17 @@
 /**
  * TimerControls — Start, Pause and Reset controls with keyboard shortcuts
  *
- * Accepts external session state (type, duration) and drives the countdown
- * using wall-clock timestamps (Date.now()), so the timer stays accurate
- * even when the tab is in the background.
+ * Drives the countdown using wall-clock timestamps (Date.now()), so the
+ * timer stays accurate even when the tab is in the background.
  *
- * The countdown counts down only while `running === true`.
+ * The countdown counts down only while running.
  * Reset restores the current session to its full duration and leaves it paused.
  * The session type is never changed by these controls.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  MOCK_INITIAL_STATE,
-  MOCK_INITIAL_CONTROLS,
   deriveControls,
-  formatTime,
   type SessionType,
   type TimerState,
   type ControlsState,
@@ -30,7 +26,7 @@ import styles from './TimerControls.module.css';
 export interface TimerControlsProps {
   /**
    * The session type whose duration this timer uses for reset.
-   * Can be changed externally; this component never changes it.
+   * Changes externally (e.g. session cycle advances) trigger an auto-reset.
    */
   sessionType?: SessionType;
   /**
@@ -39,7 +35,7 @@ export interface TimerControlsProps {
    */
   showFooter?: boolean;
   /**
-   * Callback fired each second with the current remaining seconds.
+   * Callback fired approximately every 250ms with the current remaining seconds.
    * Use to drive external display components (progress ring, pill, etc.).
    */
   onTick?: (remainingSeconds: number) => void;
@@ -53,9 +49,9 @@ export interface TimerControlsProps {
 
 function sessionDuration(type: SessionType): number {
   return (
-    type === 'work'  ? DEFAULT_DURATIONS.work
+    type === 'work'   ? DEFAULT_DURATIONS.work
     : type === 'short' ? DEFAULT_DURATIONS.short
-    : DEFAULT_DURATIONS.long
+    :                    DEFAULT_DURATIONS.long
   );
 }
 
@@ -67,21 +63,29 @@ export default function TimerControls({
   onTick,
   onSessionEnd,
 }: TimerControlsProps) {
-  // ── Timer state ──────────────────────────────────────────────────────────
-  const [sessionType] = useState<SessionType>(externalType ?? 'work');
-  const [remaining, setRemaining]     = useState(DEFAULT_DURATIONS.work);
-  const [total, setTotal]             = useState(DEFAULT_DURATIONS.work);
-  const [running, setRunning]         = useState(false);
+  const effectiveType = externalType ?? 'work';
 
-  // Wall-clock anchor: timestamp when the current running segment started
+  // ── Timer state ──────────────────────────────────────────────────────────
+  const [remaining, setRemaining] = useState(() => sessionDuration(effectiveType));
+  const [total, setTotal]         = useState(() => sessionDuration(effectiveType));
+  const [running, setRunning]     = useState(false);
+
+  // Wall-clock anchor: unix timestamp (ms) when the running segment ends.
+  // 0 means "no active end point" (paused or idle).
   const endAtRef = useRef<number>(0);
 
-  // Interval reference for cleanup
+  // Stable refs for callbacks so the interval callback is never stale.
+  const onTickRef        = useRef(onTick);
+  const onSessionEndRef  = useRef(onSessionEnd);
+  useEffect(() => { onTickRef.current       = onTick;       }, [onTick]);
+  useEffect(() => { onSessionEndRef.current  = onSessionEnd; }, [onSessionEnd]);
+
+  // Interval reference for cleanup.
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Controls derived from timer state ───────────────────────────────────
+  // ── Derived state ─────────────────────────────────────────────────────────
   const timerState: TimerState = {
-    sessionType,
+    sessionType: effectiveType,
     remainingSeconds: remaining,
     totalSeconds: total,
     status: running ? 'running' : remaining < total ? 'paused' : 'idle',
@@ -91,20 +95,19 @@ export default function TimerControls({
   // ── Start / Pause ───────────────────────────────────────────────────────
   const handleStartPause = useCallback(() => {
     if (running) {
-      // Pause: freeze remaining time using wall-clock snapshot
+      // Pause: clear the interval and forget the end timestamp.
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      const elapsed = total - remaining;
-      endAtRef.current = 0; // no future end point while paused
+      endAtRef.current = 0;
       setRunning(false);
     } else {
-      // Start: set end timestamp from current remaining
+      // Start: anchor the end timestamp to wall-clock time + remaining.
       endAtRef.current = Date.now() + remaining * 1000;
       setRunning(true);
     }
-  }, [running, total, remaining]);
+  }, [running, remaining]);
 
   // ── Reset ────────────────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -114,19 +117,25 @@ export default function TimerControls({
     }
     endAtRef.current = 0;
     setRunning(false);
-
-    // Reload session duration in case it changed externally
-    const dur = sessionDuration(sessionType);
+    const dur = sessionDuration(effectiveType);
     setTotal(dur);
     setRemaining(dur);
-  }, [sessionType]);
+  }, [effectiveType]);
+
+  // ── Auto-reset when session type changes externally ────────────────────
+  useEffect(() => {
+    // Reset whenever the parent tells us the session type changed.
+    handleReset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalType]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
+  // Space = start/pause, R = reset. Skipped when an input has focus (AC-5, AC-10).
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      // Skip when focus is on an input or button (per AC-5, AC-10)
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'button') return;
+      if (tag === 'input' || tag === 'textarea') return;
+      if ((e.target as HTMLElement).closest('button')) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -143,17 +152,17 @@ export default function TimerControls({
 
   // ── Wall-clock tick ──────────────────────────────────────────────────────
   // Uses Date.now() deltas so the countdown stays accurate when the tab is
-  // backgrounded — required for AC-6 (no drift in background tab).
+  // backgrounded — required for AC-6 (no drift when tab is hidden).
   useEffect(() => {
     if (!running) return;
 
     intervalRef.current = setInterval(() => {
-      const now = Date.now();
-      const remainingMs = endAtRef.current - now;
+      const now          = Date.now();
+      const remainingMs  = endAtRef.current - now;
       const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
 
       if (remainingSec <= 0) {
-        // Session ended
+        // Session ended — stop and notify parent.
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -161,13 +170,13 @@ export default function TimerControls({
         endAtRef.current = 0;
         setRunning(false);
         setRemaining(0);
-        onSessionEnd?.();
+        onSessionEndRef.current?.();
         return;
       }
 
       setRemaining(remainingSec);
-      onTick?.(remainingSec);
-    }, 250); // check every 250ms for accuracy, display snaps to seconds
+      onTickRef.current?.(remainingSec);
+    }, 250); // check every 250 ms; display snaps to whole seconds
 
     return () => {
       if (intervalRef.current) {
@@ -175,27 +184,21 @@ export default function TimerControls({
         intervalRef.current = null;
       }
     };
-  }, [running, onTick, onSessionEnd]);
-
-  // ── Pause state badge ────────────────────────────────────────────────────
-  // Badge only visible when paused AND time has been consumed (remaining < total).
-  const showPausedBadge = controls.showPausedBadge;
+  }, [running]); // intentionally stable: running toggles start/stop only
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Controls row */}
       <div className={styles.controls} role="group" aria-label="Timer controls">
-        {/* Reset button */}
+        {/* Reset icon button */}
         <button
           className={styles.resetBtn}
           id="resetBtn"
           aria-label="Reset timer"
           title="Reset (R)"
           onClick={handleReset}
-          disabled={controls.isRunning === false && remaining === total}
+          disabled={!running && remaining === total}
         >
-          {/* Reset icon (rotate-arrow) */}
           <svg
             width="22"
             height="22"
@@ -212,7 +215,7 @@ export default function TimerControls({
           </svg>
         </button>
 
-        {/* Start / Pause button */}
+        {/* Start / Pause primary button */}
         <button
           className={`${styles.startBtn} ${controls.isRunning ? styles.isRunning : ''}`}
           id="startBtn"
@@ -220,8 +223,7 @@ export default function TimerControls({
           aria-label={controls.startLabel === 'Start' ? 'Start timer' : 'Pause timer'}
           onClick={handleStartPause}
         >
-          {/* Play icon */}
-          {controls.startLabel === 'Start' && (
+          {controls.startLabel === 'Start' ? (
             <svg
               id="startIcon"
               width="20"
@@ -232,9 +234,7 @@ export default function TimerControls({
             >
               <path d="M7 4.5 L20 12 L7 19.5 Z" />
             </svg>
-          )}
-          {/* Pause icon */}
-          {controls.startLabel === 'Pause' && (
+          ) : (
             <svg
               width="20"
               height="20"
@@ -242,7 +242,7 @@ export default function TimerControls({
               fill="currentColor"
               aria-hidden="true"
             >
-              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="6"  y="4" width="4" height="16" rx="1" />
               <rect x="14" y="4" width="4" height="16" rx="1" />
             </svg>
           )}
@@ -250,7 +250,6 @@ export default function TimerControls({
         </button>
       </div>
 
-      {/* Footer keyboard hint */}
       {showFooter && (
         <footer className={styles.footer}>
           <p>
