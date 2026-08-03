@@ -1,0 +1,228 @@
+/* SettingsCard — Duration settings inputs, save and reset buttons */
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+
+.card {
+  background: #ffffff;
+  border: 1px solid var(--color-line, #EFE6DC);
+  border-radius: var(--color-radius, 24px);
+  box-shadow: var(--color-shadow, 0 18px 50px -18px rgba(228, 87, 46, 0.25));
+  padding: 26px 24px 24px;
+}
+
+/* ── Heading ──────────────────────────────────────────────────────────────── */
+
+.heading {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink, #2B2B33);
+}
+
+.headingIcon {
+  color: var(--color-muted, #9C918A);
+  flex-shrink: 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--color-muted, #9C918A);
+  margin-top: 4px;
+}
+
+/* ── Field grid ───────────────────────────────────────────────────────────── */
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+@media (max-width: 480px) {
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Individual field ─────────────────────────────────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted, #9C918A);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-cream, #FBF6EF);
+  border: 1.5px solid var(--color-line, #EFE6DC);
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.inputWrap:focus-within {
+  border-color: var(--color-primary, #E4572E);
+  background: #ffffff;
+}
+
+.input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink, #2B2B33);
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.input::-webkit-inner-spin-button,
+.input::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.unit {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-muted, #9C918A);
+  flex-shrink: 0;
+}
+
+/* ── Error state for input ────────────────────────────────────────────────── */
+
+.inputWrap.hasError {
+  border-color: var(--color-primary, #E4572E);
+  background: #fffcf9;
+}
+
+/* ── Actions row ───────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+/* ── Ghost / Reset button ────────────────────────────────────────────────── */
+
+.ghostBtn {
+  background: none;
+  border: none;
+  color: var(--color-muted, #9C918A);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 6px 2px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.ghostBtn:hover {
+  color: var(--color-primary, #E4572E);
+}
+
+.ghostBtn:focus-visible {
+  outline: 3px solid var(--color-primary, #E4572E);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Primary / Save button ────────────────────────────────────────────────── */
+
+.primaryBtn {
+  background: var(--color-ink, #2B2B33);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 26px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.primaryBtn:hover {
+  background: var(--color-primary, #E4572E);
+  transform: translateY(-1px);
+}
+
+.primaryBtn:active {
+  transform: scale(0.98);
+}
+
+.primaryBtn:focus-visible {
+  outline: 3px solid var(--color-primary, #E4572E);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Loading spinner inside primary button ────────────────────────────────── */
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error message ─────────────────────────────────────────────────────────── */
+
+.errorMsg {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--color-primary, #E4572E);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryBtn,
+  .ghostBtn {
+    transition-duration: 0.01ms;
+  }
+  .spinner {
+    animation-duration: 0.01ms;
+  }
+}
