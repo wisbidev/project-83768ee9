@@ -12,7 +12,7 @@ import type { SessionType } from '../lib/mock/start-pause-and-reset-controls';
 import TimerControls from '../components/TimerControls';
 import DailyCounter, { incrementDailyCount } from '../components/DailyCounter';
 
-// ─── Session cycle helpers ───────────────────────────────────────────────────
+// ─── Session cycle ────────────────────────────────────────────────────────────
 
 const CYCLE_BEFORE_LONG = 4; // long break after every 4th work session
 
@@ -20,12 +20,12 @@ function nextSessionType(
   current: SessionType,
   completedWorkCount: number,
 ): SessionType {
-  if (current === 'work') {
-    // After 4th work session → long break; otherwise → short break.
-    return (completedWorkCount + 1) % CYCLE_BEFORE_LONG === 0 ? 'long' : 'short';
+  if (current !== 'work') {
+    // After any break → Work; cycle position resets to 0 for the new cycle.
+    return 'work';
   }
-  // After any break → work.
-  return 'work';
+  // After a Work session: long break if this was the 4th in the cycle.
+  return completedWorkCount % CYCLE_BEFORE_LONG === 0 ? 'long' : 'short';
 }
 
 // ─── Daily counter initial value ─────────────────────────────────────────────
@@ -49,6 +49,9 @@ function initDailyCount(): number {
 export default function Page() {
   const [sessionType, setSessionType] = useState<SessionType>('work');
   const [dailyCount, setDailyCount] = useState(0);
+  // Number of completed work sessions in the current cycle (0–3 before long break).
+  // Resets to 0 after every Long Break.
+  const [cycleCompletedWork, setCycleCompletedWork] = useState(0);
 
   // Initialise daily counter from localStorage on mount.
   useEffect(() => {
@@ -57,14 +60,18 @@ export default function Page() {
 
   // Called by TimerControls when the countdown reaches 0.
   function onTimerSessionEnd() {
-    // Increment the counter only for a completed Work session.
     if (sessionType === 'work') {
+      // Increment the daily counter and persist to localStorage.
       incrementDailyCount();
       setDailyCount((c) => c + 1);
+      // Advance the cycle counter; long break fires when this was session 4.
+      setCycleCompletedWork((n) => n + 1);
+    } else {
+      // After any break, cycle position resets.
+      setCycleCompletedWork(0);
     }
     // Advance to the next session type.
-    const next = nextSessionType(sessionType, dailyCount);
-    setSessionType(next);
+    setSessionType((prev) => nextSessionType(prev, cycleCompletedWork));
   }
 
   return (
