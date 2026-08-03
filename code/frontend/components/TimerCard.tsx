@@ -37,7 +37,11 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
       const raw = localStorage.getItem('pomodoro_settings');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.workDuration && Number.isInteger(parsed.workDuration) && parsed.workDuration > 0) {
+        if (
+          parsed?.workDuration &&
+          Number.isInteger(parsed.workDuration) &&
+          parsed.workDuration > 0
+        ) {
           const dur = parsed.workDuration * 60;
           setRemainingSeconds(dur);
         }
@@ -58,15 +62,15 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
     sessionType === 'short'
       ? '#2F9E77'
       : sessionType === 'long'
-      ? '#3B6FE0'
-      : '#E4572E';
+        ? '#3B6FE0'
+        : '#E4572E';
 
   const progressClass =
     sessionType === 'short'
       ? styles.progressGreen
       : sessionType === 'long'
-      ? styles.progressBlue
-      : '';
+        ? styles.progressBlue
+        : '';
 
   const timeDisplay = formatTime(remainingSeconds);
 
@@ -74,7 +78,11 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
 
   if (result && 'loading' in result) {
     return (
-      <section className={styles.card} aria-label="Timer" aria-busy="true">
+      <section
+        className={styles.card}
+        aria-label="Timer"
+        aria-busy="true"
+      >
         <LoadingSkeleton />
       </section>
     );
@@ -83,7 +91,10 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
   if (result && 'error' in result) {
     return (
       <section className={styles.card} aria-label="Timer">
-        <ErrorState message={result.message} onRetry={() => setResult(null)} />
+        <ErrorState
+          message={result.message}
+          onRetry={() => setResult(null)}
+        />
       </section>
     );
   }
@@ -97,7 +108,13 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
     >
       {/* Session pill */}
       <span
-        className={`session-pill ${sessionType === 'short' ? 'is-green' : sessionType === 'long' ? 'is-blue' : ''}`}
+        className={
+          sessionType === 'short'
+            ? 'session-pill is-green'
+            : sessionType === 'long'
+              ? 'session-pill is-blue'
+              : 'session-pill'
+        }
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -112,14 +129,14 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
             sessionType === 'short'
               ? '#DDF0E8'
               : sessionType === 'long'
-              ? '#DDE7FB'
-              : '#FCE4D8',
+                ? '#DDE7FB'
+                : '#FCE4D8',
           color:
             sessionType === 'short'
               ? '#2F9E77'
               : sessionType === 'long'
-              ? '#3B6FE0'
-              : '#C74420',
+                ? '#3B6FE0'
+                : '#C74420',
           position: 'relative',
           zIndex: 1,
         }}
@@ -139,8 +156,17 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
 
       {/* Ring */}
       <div className={styles.ringWrap} aria-hidden="true">
-        <svg viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`} role="img" aria-label={`Time remaining ring, ${timeDisplay}`}>
-          <circle className={styles.track} cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R} />
+        <svg
+          viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+          role="img"
+          aria-label={`Time remaining ring, ${timeDisplay}`}
+        >
+          <circle
+            className={styles.track}
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_R}
+          />
           <circle
             className={`${styles.progress} ${progressClass}`}
             cx={RING_SIZE / 2}
@@ -173,7 +199,10 @@ export default function TimerCard({ initialResult }: TimerCardProps) {
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-col items-center gap-6 py-10" aria-hidden="true">
+    <div
+      className="flex flex-col items-center gap-6 py-10"
+      aria-hidden="true"
+    >
       {/* Pill skeleton */}
       <div className="w-28 h-6 rounded-full bg-[#F1E7DB] animate-pulse" />
       {/* Ring skeleton */}
@@ -184,7 +213,13 @@ function LoadingSkeleton() {
   );
 }
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   return (
     <div className="flex flex-col items-center gap-5 py-12">
       <svg
