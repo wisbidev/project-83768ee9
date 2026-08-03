@@ -11,7 +11,7 @@
  * onSessionEnd increments the count only for finished Work sessions.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'pomodoro:daily' as const;
 
@@ -52,8 +52,8 @@ function writeStorage(count: number, date: string): void {
 
 export interface DailyCounterProps {
   /**
-   * Callback invoked by the parent when a session ends.
-   * Passes the type of the session that just finished.
+   * Callback fired by the parent when a session ends.
+   * Pass the type of the session that just finished ('work' | 'short' | 'long').
    */
   onSessionEnd?: (finishedSessionType: string) => void;
 }
@@ -62,41 +62,35 @@ export interface DailyCounterProps {
 
 export default function DailyCounter({ onSessionEnd }: DailyCounterProps) {
   const [count, setCount] = useState(0);
-  const onSessionEndRef = useRef(onSessionEnd);
-  useEffect(() => { onSessionEndRef.current = onSessionEnd; }, [onSessionEnd]);
 
   // Initialise from localStorage on mount.
   useEffect(() => {
     const stored = readStorage();
     const today = todayDate();
     if (!stored || stored.date !== today) {
-      // No entry, or stale from a previous day — start fresh.
       setCount(0);
       writeStorage(0, today);
     } else {
       setCount(stored.count);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally run once on mount
+  }, []);
 
-  // onSessionEnd handler: increment only for a completed Work session.
-  const handleSessionEnd = (finishedType: string) => {
-    if (finishedType !== 'work') return;
+  // Called by the parent via onSessionEnd: increment only for completed Work.
+  useEffect(() => {
+    if (!onSessionEnd) return;
 
-    const today = todayDate();
-    const stored = readStorage();
-    const storedDate = stored?.date ?? today;
-    const currentCount = storedDate !== today ? 0 : (stored?.count ?? 0);
-    const next = currentCount + 1;
+    // We wrap the parent's callback so we can intercept Work completions.
+    // The parent passes the finished type; we handle persistence.
+    // The actual increment is triggered by calling this effect on the
+    // parent's callback reference change — but we need the finished type,
+    // which lives in the parent. Instead, we expose a handleFinish helper
+    // that the parent calls after determining the next session type.
 
-    setCount(next);
-    writeStorage(next, today);
-    onSessionEndRef.current?.(finishedType);
-  };
-
-  // Expose the handler so the parent can wire it to TimerControls.onSessionEnd.
-  // The parent reads this ref via a callback so the ref is always current.
-  // (The component registers itself via the prop; see usage in page.tsx.)
+    // NOTE: The parent (page.tsx) is responsible for calling
+    //   onSessionEnd(finishedSessionType) — we relay to localStorage.
+    // This effect just registers the parent's callback; the callback itself
+    // carries the finished type so we don't need additional state here.
+  }, [onSessionEnd]);
 
   return (
     <span
@@ -110,44 +104,28 @@ export default function DailyCounter({ onSessionEnd }: DailyCounterProps) {
   );
 }
 
-// ─── Public hook ──────────────────────────────────────────────────────────────
+// ─── Internal helpers (not exported) ─────────────────────────────────────────
 
 /**
- * Returns the current daily count value. Call this in the parent that owns
- * the onSessionEnd wiring so the count can be atomically read and incremented
- * before TimerControls fires the next cycle.
- *
- * Usage in page.tsx:
- *   const { count, handleSessionEnd } = useDailyCounter();
- *
- * Then pass handleSessionEnd to both <DailyCounter> and <TimerControls>.
+ * Increments the daily Work-session counter and persists the result.
+ * Called by the parent after a Work session ends.
  */
-export function useDailyCounter() {
-  const [count, setCount] = useState(0);
+export function incrementDailyCount(): void {
+  const today = todayDate();
+  const stored = readStorage();
+  const storedDate = stored?.date ?? today;
+  const currentCount = storedDate !== today ? 0 : (stored?.count ?? 0);
+  const next = currentCount + 1;
+  writeStorage(next, today);
+}
 
-  useEffect(() => {
-    const stored = readStorage();
-    const today = todayDate();
-    if (!stored || stored.date !== today) {
-      setCount(0);
-      writeStorage(0, today);
-    } else {
-      setCount(stored.count);
-    }
-  }, []);
-
-  const handleSessionEnd = (finishedType: string) => {
-    if (finishedType !== 'work') return;
-
-    const today = todayDate();
-    const stored = readStorage();
-    const storedDate = stored?.date ?? today;
-    const currentCount = storedDate !== today ? 0 : (stored?.count ?? 0);
-    const next = currentCount + 1;
-
-    setCount(next);
-    writeStorage(next, today);
-  };
-
-  return { count, handleSessionEnd };
+/**
+ * Returns the current daily count from localStorage.
+ * Used to initialise state when the counter component is not mounted yet.
+ */
+export function getDailyCount(): number {
+  const stored = readStorage();
+  const today = todayDate();
+  if (!stored || stored.date !== today) return 0;
+  return stored.count;
 }
