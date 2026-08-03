@@ -59,7 +59,6 @@ export const MOCK_IDLE_SETTINGS: SettingsState = {
 
 /**
  * Momentary "saving" state while settings are being written.
- * Transitions to MOCK_SAVED_SETTINGS after a short delay.
  */
 export const MOCK_SAVING_SETTINGS: SettingsState = {
   work:  50,
@@ -101,28 +100,16 @@ export const MOCK_ERROR_SETTINGS: SettingsErrorState = {
   message: 'Could not load settings. Using defaults.',
 };
 
-// ─── Toast messages ───────────────────────────────────────────────────────────
+// ─── Toast messages ──────────────────────────────────────────────────────────
 
-export const TOAST_SAVED   = 'Settings saved — applied to the current session.';
-export const TOAST_RESET   = 'Defaults restored.';
-export const TOAST_INVALID = 'Invalid values — using nearest valid settings.';
+export const TOAST_SAVED  = 'Settings saved — applied to the current session.';
+export const TOAST_RESET  = 'Defaults restored.';
 
 // ─── Storage key ──────────────────────────────────────────────────────────────
 
 export const STORAGE_KEY = 'pomodoro:settings';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Validates and clamps the three duration values.
- * Non-numeric, empty, or out-of-range values are clamped to nearest bound.
- */
-export function validateAndClamp(raw: Partial<SettingsDurations>): SettingsDurations {
-  const work  = clamp(raw.work  ?? DEFAULT_SETTINGS.work,  INPUT_BOUNDS.work.min,  INPUT_BOUNDS.work.max);
-  const short = clamp(raw.short ?? DEFAULT_SETTINGS.short, INPUT_BOUNDS.short.min, INPUT_BOUNDS.short.max);
-  const long  = clamp(raw.long  ?? DEFAULT_SETTINGS.long,  INPUT_BOUNDS.long.min,  INPUT_BOUNDS.long.max);
-  return { work, short, long };
-}
+// ─── Storage helpers ──────────────────────────────────────────────────────────
 
 /**
  * Reads settings from localStorage, falling back to defaults on any failure.
@@ -140,7 +127,8 @@ export function loadFromStorage(): SettingsDurations {
 }
 
 /**
- * Writes settings to localStorage. Wrapped in try/catch for private/quota errors.
+ * Writes settings to localStorage.
+ * Returns true on success, false on failure (private mode, quota exceeded, etc.).
  */
 export function saveToStorage(settings: SettingsDurations): boolean {
   try {
@@ -149,4 +137,17 @@ export function saveToStorage(settings: SettingsDurations): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Validates and clamps the three duration values.
+ * Non-numeric, empty, or out-of-range values are clamped to nearest bound.
+ */
+export function validateAndClamp(
+  raw: Partial<SettingsDurations>,
+): SettingsDurations {
+  const work  = clamp(raw.work  ?? DEFAULT_SETTINGS.work,  INPUT_BOUNDS.work.min,  INPUT_BOUNDS.work.max);
+  const short = clamp(raw.short ?? DEFAULT_SETTINGS.short, INPUT_BOUNDS.short.min, INPUT_BOUNDS.short.max);
+  const long  = clamp(raw.long  ?? DEFAULT_SETTINGS.long,  INPUT_BOUNDS.long.min,  INPUT_BOUNDS.long.max);
+  return { work, short, long };
 }
