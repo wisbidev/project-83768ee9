@@ -3,15 +3,14 @@
 /**
  * Page — single-page Pomodoro Timer
  *
- * Orchestrates the session cycle, daily counter, timer controls, and (future)
- * settings.  All logic lives here in this Client Component so that child
- * components remain purely presentational.
+ * Orchestrates the session cycle, daily counter, and timer controls.
+ * All logic lives here so child components remain purely presentational.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SessionType } from '../lib/mock/start-pause-and-reset-controls';
 import TimerControls from '../components/TimerControls';
-import { useDailyCounter } from '../components/DailyCounter';
+import DailyCounter, { incrementDailyCount } from '../components/DailyCounter';
 
 // ─── Session cycle helpers ───────────────────────────────────────────────────
 
@@ -29,30 +28,50 @@ function nextSessionType(
   return 'work';
 }
 
+// ─── Daily counter initial value ─────────────────────────────────────────────
+
+function initDailyCount(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem('pomodoro:daily');
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { count: number; date: string };
+    const today = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
+    if (parsed.date !== today) return 0;
+    return parsed.count;
+  } catch {
+    return 0;
+  }
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Page() {
   const [sessionType, setSessionType] = useState<SessionType>('work');
-  const { handleSessionEnd } = useDailyCounter();
+  const [dailyCount, setDailyCount] = useState(0);
+
+  // Initialise daily counter from localStorage on mount.
+  useEffect(() => {
+    setDailyCount(initDailyCount());
+  }, []);
 
   // Called by TimerControls when the countdown reaches 0.
   function onTimerSessionEnd() {
-    const next = nextSessionType(sessionType, 0);
+    // Increment the counter only for a completed Work session.
+    if (sessionType === 'work') {
+      incrementDailyCount();
+      setDailyCount((c) => c + 1);
+    }
+    // Advance to the next session type.
+    const next = nextSessionType(sessionType, dailyCount);
     setSessionType(next);
-    handleSessionEnd(sessionType);
   }
 
   return (
     <main className="min-h-dvh flex flex-col items-center justify-center gap-8 px-4 py-8">
-      {/* Daily counter chip */}
+      {/* Daily counter chip in the top bar */}
       <div className="flex items-center gap-2 text-sm">
-        <span id="dailyCount" aria-live="polite" aria-atomic="true">
-          {/* Rendered by useDailyCounter; placeholder below during load */}
-          <span className="text-primary font-semibold tabular-nums">
-            {/* count injected by useDailyCounter via DOM is not possible
-                without a ref; DailyCounter component is rendered separately */}
-          </span>
-        </span>
+        <DailyCounter count={dailyCount} />
       </div>
 
       {/* Timer with session-type pill, progress ring, and controls */}
