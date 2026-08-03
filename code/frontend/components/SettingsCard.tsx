@@ -22,7 +22,6 @@ import styles from './SettingsCard.module.css';
 import {
   DEFAULT_SETTINGS,
   INPUT_BOUNDS,
-  STORAGE_KEY,
   TOAST_RESET,
   TOAST_SAVED,
   clamp,
@@ -61,8 +60,9 @@ export default function SettingsCard({
   const [loading, setLoading] = useState(true);
 
   // ── Toast state ───────────────────────────────────────────────────────────
-  const [toastMsg,    setToastMsg]    = useState('');
-  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMsg,      setToastMsg]      = useState('');
+  const [toastVisible,  setToastVisible]  = useState(false);
+  const [toastVariant, setToastVariant]  = useState<'ink' | 'tomato'>('ink');
 
   // ── Saving state — disables the save button while processing ────────────
   const [saving, setSaving] = useState(false);
@@ -81,8 +81,9 @@ export default function SettingsCard({
   }, []);
 
   // ── Show toast ───────────────────────────────────────────────────────────
-  const showToast = useCallback((message: string) => {
+  const showToast = useCallback((message: string, variant: 'ink' | 'tomato' = 'ink') => {
     setToastMsg(message);
+    setToastVariant(variant);
     setToastVisible(true);
   }, []);
 
@@ -108,7 +109,7 @@ export default function SettingsCard({
     const settings: SettingsDurations = { work, short, long };
     saveToStorage(settings); // try/catch inside; failures do not crash
 
-    // 4. Notify parent (restart timer)
+    // 4. Notify parent (restart timer at new duration)
     setSaving(true);
     try {
       onSave?.(settings);
@@ -117,7 +118,7 @@ export default function SettingsCard({
     }
 
     // 5. Confirm
-    showToast(TOAST_SAVED);
+    showToast(TOAST_SAVED, 'tomato');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workVal, shortVal, longVal, saving, onSave, showToast]);
 
@@ -143,7 +144,7 @@ export default function SettingsCard({
       setSaving(false);
     }
 
-    showToast(TOAST_RESET);
+    showToast(TOAST_RESET, 'ink');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saving, onReset, showToast]);
 
@@ -261,20 +262,19 @@ export default function SettingsCard({
         {/* Actions */}
         <div className={styles.actions}>
           <button
-            type="button"
             className={styles.ghostBtn}
             id="defaultsBtn"
+            type="button"
             onClick={handleReset}
             disabled={saving}
-            aria-label="Reset all durations to defaults"
+            aria-label="Reset to defaults"
           >
             Reset to defaults
           </button>
-
           <button
-            type="button"
             className={styles.primaryBtn}
             id="saveBtn"
+            type="button"
             onClick={handleSave}
             disabled={saving}
             aria-label="Save settings"
@@ -284,12 +284,11 @@ export default function SettingsCard({
         </div>
       </section>
 
-      {/* Toast notification */}
+      {/* Toast — rendered outside the card so it can be fixed-positioned */}
       <Toast
         message={toastMsg}
+        variant={toastVariant}
         visible={toastVisible}
-        variant="ink"
-        duration={3000}
         onDismiss={handleToastDismiss}
       />
     </>
