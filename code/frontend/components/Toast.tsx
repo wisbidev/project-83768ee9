@@ -1,14 +1,20 @@
 'use client';
 
+/**
+ * Toast — fixed-position confirmation message.
+ *
+ * Auto-dismisses after `duration` ms (default 3000).
+ * Pass `visible` to control show/hide from the parent.
+ */
+
 import { useEffect, useRef } from 'react';
 import styles from './Toast.module.css';
-import type { ToastVariant } from './Toast.module.css';
 
-export type ToastVariantColor = 'tomato' | 'green' | 'blue' | 'ink';
+export type ToastVariant = 'tomato' | 'green' | 'blue' | 'ink';
 
 export interface ToastProps {
   message: string;
-  variant?: ToastVariantColor;
+  variant?: ToastVariant;
   /** Controls visibility. Component unmounts (returns null) when not visible. */
   visible: boolean;
   /** Auto-dismiss delay in ms. Default 3000. Set to 0 to disable. */
