@@ -1,123 +1,166 @@
 /**
- * Mock data module for "Settings for the three durations" (plan item 6).
+ * Mock data module — Settings for the three durations
  *
- * This file is the contract the backend must satisfy.  Shape it exactly as the
- * API would return it — field names, types, nullability, and error shape.
- * When the real API exists, replace this file and nothing else.
- *
- * The settings store holds three session durations in minutes:
- *   work  — 1–120  (Work session)
- *   short — 1–60   (Short Break)
- *   long  — 1–120  (Long Break)
+ * Shapes the expected state of the settings card and timer integration.
+ * The real implementation replaces only this file.
  */
 
-export interface SettingsData {
-  work: number;
-  short: number;
-  long: number;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface SettingsValues {
+  work: number;   // minutes
+  short: number;  // minutes
+  long: number;   // minutes
 }
 
-export interface SettingsResponse {
-  data: SettingsData;
-}
+export type SessionType = 'work' | 'short' | 'long';
 
-export interface SettingsState {
-  loading: boolean;
-  error: string | null;
-  data: SettingsData;
-}
+// ─── Defaults (minutes) ───────────────────────────────────────────────────────
 
-/** Defaults per SRS TIMER-009 §1 and the approved design. */
-export const DEFAULT_SETTINGS: SettingsData = {
-  work: 25,
-  short: 5,
-  long: 15,
+export const DEFAULT_SETTINGS: SettingsValues = {
+  work:  25,
+  short:  5,
+  long:  15,
 };
 
-/** Natural loading delay used by the mock to exercise the loading state. */
-export const MOCK_DELAY_MS = 600;
+// ─── Input constraints (minutes) ─────────────────────────────────────────────
 
-/** Simulated network error used by the mock to exercise the error state. */
-export const MOCK_ERROR = 'Unable to load settings. Please try again.';
+export const INPUT_CONSTRAINTS: Record<keyof SettingsValues, { min: number; max: number }> = {
+  work:  { min: 1, max: 120 },
+  short: { min: 1, max: 60  },
+  long:  { min: 1, max: 120 },
+};
+
+// ─── localStorage key ─────────────────────────────────────────────────────────
+
+export const STORAGE_KEY = 'pomodoro:settings';
+
+// ─── Toast messages ───────────────────────────────────────────────────────────
+
+export const TOAST_SAVED  = 'Settings saved — applied to the current session.';
+export const TOAST_RESET = 'Defaults restored';
+
+// ─── Mock state ───────────────────────────────────────────────────────────────
+
+export type SettingsStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+export interface SettingsState {
+  values: SettingsValues;
+  status: SettingsStatus;
+  errorMessage: string | null;
+}
+
+// Default / idle state
+export const MOCK_IDLE_STATE: SettingsState = {
+  values: DEFAULT_SETTINGS,
+  status: 'idle',
+  errorMessage: null,
+};
+
+// After save (Work = 50)
+export const MOCK_SAVED_50_STATE: SettingsState = {
+  values: { work: 50, short: 5, long: 15 },
+  status: 'saved',
+  errorMessage: null,
+};
+
+// After save (Work = 30, Short = 10, Long = 20)
+export const MOCK_SAVED_CUSTOM_STATE: SettingsState = {
+  values: { work: 30, short: 10, long: 20 },
+  status: 'saved',
+  errorMessage: null,
+};
+
+// Loading state
+export const MOCK_LOADING_STATE: SettingsState = {
+  values: { work: 0, short: 0, long: 0 },
+  status: 'idle',
+  errorMessage: null,
+};
+
+// Error state
+export const MOCK_ERROR_STATE: SettingsState = {
+  values: DEFAULT_SETTINGS,
+  status: 'error',
+  errorMessage: 'Could not load settings. Please refresh.',
+};
+
+// ─── Validation helpers ───────────────────────────────────────────────────────
+
 /**
- * Mock data-access layer.  All reads and writes go through here — swapping
- * to a real API touches only this file.
+ * Clamp a numeric value to the valid range for each field.
+ * Used both for live input and on-save validation.
  */
+export function clampValue(field: keyof SettingsValues, value: number): number {
+  const { min, max } = INPUT_CONSTRAINTS[field];
+  if (isNaN(value)) return min;
+  if (value < min)  return min;
+  if (value > max)  return max;
+  return Math.round(value); // whole minutes only
+}
 
-import type { SettingsData, SettingsState } from './settings-for-the-three-durations';
-import {
-  DEFAULT_SETTINGS,
-  MOCK_DELAY_MS,
-  MOCK_ERROR,
-} from './settings-for-the-three-durations';
+/**
+ * Validate and clamp all three settings, returning the corrected values.
+ * Any NaN, empty-string equivalent, or out-of-range value is clamped.
+ */
+export function validateSettings(raw: Partial<SettingsValues>): SettingsValues {
+  return {
+    work:  clampValue('work',  raw.work  ?? DEFAULT_SETTINGS.work),
+    short: clampValue('short', raw.short ?? DEFAULT_SETTINGS.short),
+    long:  clampValue('long',  raw.long  ?? DEFAULT_SETTINGS.long),
+  };
+}
 
-const STORAGE_KEY = 'pomodoro:settings';
-
-/** Read persisted settings from localStorage.  Falls back to defaults. */
-export function loadSettings(): SettingsData {
+/**
+ * Load settings from localStorage, falling back to defaults.
+ * Returns null on any parse/storage error so the caller can decide how to handle.
+ */
+export function loadSettings(): SettingsValues | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<SettingsData>;
-    return {
-      work: clamp(parsed.work ?? DEFAULT_SETTINGS.work, 1, 120),
-      short: clamp(parsed.short ?? DEFAULT_SETTINGS.short, 1, 60),
-      long: clamp(parsed.long ?? DEFAULT_SETTINGS.long, 1, 120),
-    };
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      'work' in (parsed as object) &&
+      'short' in (parsed as object) &&
+      'long' in (parsed as object)
+    ) {
+      const obj = parsed as SettingsValues;
+      const validated = validateSettings(obj);
+      // Check if any value was out of range → fall back to defaults per TIMER-010 AC-2
+      const hadOOB =
+        obj.work  !== validated.work  ||
+        obj.short !== validated.short ||
+        obj.long  !== validated.long;
+      if (hadOOB) return null; // fall back to defaults
+      return validated;
+    }
+    return null;
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return null;
   }
 }
 
-/** Persist settings to localStorage.  Throws on failure. */
-export function saveSettings(settings: SettingsData): void {
-  const raw = JSON.stringify(settings);
-  localStorage.setItem(STORAGE_KEY, raw);
+/**
+ * Save settings to localStorage. Silently swallows errors (private mode, quota).
+ */
+export function saveSettings(values: SettingsValues): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+  } catch {
+    // Swallow: TIMER-010 AC-3 — nothing should crash.
+  }
 }
 
-/** Reset to defaults and persist. */
-export function resetToDefaults(): SettingsData {
-  const defaults = { ...DEFAULT_SETTINGS };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
-  return defaults;
-}
-
-// ── Mock async API surface ────────────────────────────────────────────────────
-
-/** Simulates a GET /settings call with a loading delay. */
-export async function fetchSettings(): Promise<SettingsData> {
-  await delay(MOCK_DELAY_MS);
-  return loadSettings();
-}
-
-/** Simulates a PUT /settings call with a loading delay. */
-export async function persistSettings(
-  settings: SettingsData,
-): Promise<SettingsData> {
-  await delay(300);
-  saveSettings(settings);
-  return settings;
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Math.round(value)));
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// ── Story test helpers (used by test files, not production code) ─────────────
-
-/** Seed localStorage with arbitrary settings for test scenarios. */
-export function seedSettings(overrides: Partial<SettingsData>): void {
-  const base = loadSettings();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...base, ...overrides }));
-}
-
-/** Clear all persisted settings. */
-export function clearSettings(): void {
-  localStorage.removeItem(STORAGE_KEY);
+/**
+ * Reset to defaults: remove the localStorage key.
+ */
+export function resetToDefaults(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Swallow.
+  }
 }
