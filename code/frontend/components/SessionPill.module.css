@@ -1,0 +1,43 @@
+/* SessionPill — session-type label pill with colour transitions */
+
+.sessionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--color-tomato-soft, #FCE4D8);
+  color: var(--color-tomato-deep, #C74420);
+  transition: background 0.35s ease, color 0.35s ease, transform 0.35s ease;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.isGreen {
+  background: var(--color-short-soft, #DDF0E8);
+  color: var(--color-short, #2F9E77);
+}
+
+.isBlue {
+  background: var(--color-long-soft, #DDE7FB);
+  color: var(--color-long, #3B6FE0);
+}
+
+.pulse {
+  animation: pillPulse 0.6s ease;
+}
+
+@keyframes pillPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}

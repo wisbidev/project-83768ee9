@@ -1,0 +1,38 @@
+/* CycleDots — row of 4 dots showing position in the 4-session cycle */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 1;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--color-muted, #9C918A);
+  font-weight: 600;
+}
+
+.dots {
+  display: flex;
+  gap: 10px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-track, #F1E7DB);
+  transition: background 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.dotDone {
+  background: var(--color-tomato, #E4572E);
+  transform: scale(1.15);
+}
+
+.dotActive {
+  background: var(--color-tomato, #E4572E);
+  box-shadow: 0 0 0 4px var(--color-tomato-soft, #FCE4D8);
+}

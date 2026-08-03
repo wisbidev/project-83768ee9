@@ -1,0 +1,110 @@
+/* ProgressRing — animated SVG ring with countdown time display */
+
+.wrap {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 22px 0 8px;
+}
+
+.wrap svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+/* Track — always grey */
+.track {
+  fill: none;
+  stroke: var(--color-track, #F1E7DB);
+  stroke-width: 10;
+}
+
+/* Progress arc — colour follows session type via modifier classes */
+.progress {
+  fill: none;
+  stroke: var(--color-tomato, #E4572E);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.35s ease;
+  filter: drop-shadow(0 0 6px rgba(228, 87, 46, 0.35));
+}
+
+/* Colour modifiers */
+.isGreen .progress {
+  stroke: var(--color-short, #2F9E77);
+  filter: drop-shadow(0 0 6px rgba(47, 158, 119, 0.35));
+}
+
+.isBlue .progress {
+  stroke: var(--color-long, #3B6FE0);
+  filter: drop-shadow(0 0 6px rgba(59, 111, 224, 0.35));
+}
+
+/* Pulse ring when running */
+.wrap.isRunning::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 2px solid rgba(228, 87, 46, 0.12);
+  animation: ringPulse 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
+.isGreen.isRunning::after {
+  border-color: rgba(47, 158, 119, 0.14);
+}
+
+.isBlue.isRunning::after {
+  border-color: rgba(59, 111, 224, 0.14);
+}
+
+@keyframes ringPulse {
+  0%   { transform: scale(0.96); opacity: 0.9; }
+  100% { transform: scale(1.08); opacity: 0; }
+}
+
+/* Center time display */
+.center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.time {
+  font-size: 58px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-ink, #2B2B33);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--color-muted, #9C918A);
+  font-weight: 600;
+  min-height: 18px;
+}
+
+.pausedBadge {
+  display: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted, #9C918A);
+  background: #F3EDE5;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-top: 2px;
+}
+
+.isPaused .pausedBadge {
+  display: inline-block;
+}
