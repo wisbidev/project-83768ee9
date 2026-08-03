@@ -4,7 +4,7 @@
   position: fixed;
   left: 50%;
   bottom: 26px;
-  transform: translate(-50%, 24px);
+  transform: translate(-50%, 0);
   background: var(--color-ink, #2B2B33);
   color: #fff;
   font-size: 14px;
@@ -12,21 +12,14 @@
   padding: 13px 22px;
   border-radius: 14px;
   box-shadow: 0 16px 40px -12px rgba(43, 43, 51, 0.5);
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
   transition: opacity 0.3s ease, transform 0.3s ease;
   max-width: calc(100vw - 40px);
   text-align: center;
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 0;
-}
-
-/* Visible state — slide up + fade in */
-.toast {
-  opacity: 1;
-  transform: translate(-50%, 0);
 }
 
 /* Variant dot */
@@ -39,22 +32,21 @@
   flex-shrink: 0;
 }
 
-/* Variant colours */
-.tomato .dot { background: var(--color-primary, #E4572E); }
-.green   .dot { background: var(--color-short,   #2F9E77); }
-.blue    .dot { background: var(--color-long,    #3B6FE0); }
-.ink     .dot { background: #fff; }
-
-/* Toast background variants */
+/* Variant background colours */
 .tomato { background: var(--color-primary, #E4572E); }
 .green  { background: var(--color-short,   #2F9E77); }
 .blue   { background: var(--color-long,    #3B6FE0); }
 .ink    { background: var(--color-ink,     #2B2B33); }
 
-/* Reduced motion */
+/* Variant dot colours */
+.tomato .dot { background: #fff; }
+.green  .dot { background: #fff; }
+.blue   .dot { background: #fff; }
+.ink    .dot { background: #fff; }
+
+/* Reduced motion — instant appearance */
 @media (prefers-reduced-motion: reduce) {
   .toast {
     transition: opacity 0.01ms;
-    transform: translate(-50%, 0);
   }
 }
