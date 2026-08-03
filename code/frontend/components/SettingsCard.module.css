@@ -1,16 +1,16 @@
-/* SettingsCard — Duration settings inputs, save and reset buttons */
+/* SettingsCard — duration inputs, save and reset buttons */
 
-/* ── Card ─────────────────────────────────────────────────────────────────── */
+/* ── Card ──────────────────────────────────────────────────────────────────── */
 
 .card {
   background: #ffffff;
   border: 1px solid var(--color-line, #EFE6DC);
-  border-radius: var(--color-radius, 24px);
-  box-shadow: var(--color-shadow, 0 18px 50px -18px rgba(228, 87, 46, 0.25));
+  border-radius: 24px;
+  box-shadow: 0 18px 50px -18px rgba(228, 87, 46, 0.25);
   padding: 26px 24px 24px;
 }
 
-/* ── Heading ──────────────────────────────────────────────────────────────── */
+/* ── Heading ───────────────────────────────────────────────────────────────── */
 
 .heading {
   font-size: 17px;
@@ -20,6 +20,7 @@
   align-items: center;
   gap: 8px;
   color: var(--color-ink, #2B2B33);
+  margin: 0;
 }
 
 .headingIcon {
@@ -31,6 +32,7 @@
   font-size: 13px;
   color: var(--color-muted, #9C918A);
   margin-top: 4px;
+  line-height: 1.5;
 }
 
 /* ── Field grid ───────────────────────────────────────────────────────────── */
@@ -42,20 +44,9 @@
   margin-top: 18px;
 }
 
-@media (max-width: 480px) {
-  .fieldGrid {
-    grid-template-columns: 1fr;
-  }
-}
+/* ── Individual field ──────────────────────────────────────────────────────── */
 
-/* ── Individual field ─────────────────────────────────────────────────────── */
-
-.field {
-  display: flex;
-  flex-direction: column;
-}
-
-.fieldLabel {
+.field label {
   display: block;
   font-size: 12px;
   font-weight: 700;
@@ -80,7 +71,7 @@
   background: #ffffff;
 }
 
-.input {
+.numberInput {
   width: 100%;
   border: none;
   background: transparent;
@@ -93,8 +84,8 @@
   -moz-appearance: textfield;
 }
 
-.input::-webkit-inner-spin-button,
-.input::-webkit-outer-spin-button {
+.numberInput::-webkit-inner-spin-button,
+.numberInput::-webkit-outer-spin-button {
   opacity: 1;
 }
 
@@ -105,14 +96,7 @@
   flex-shrink: 0;
 }
 
-/* ── Error state for input ────────────────────────────────────────────────── */
-
-.inputWrap.hasError {
-  border-color: var(--color-primary, #E4572E);
-  background: #fffcf9;
-}
-
-/* ── Actions row ───────────────────────────────────────────────────────────── */
+/* ── Actions row ──────────────────────────────────────────────────────────── */
 
 .actions {
   display: flex;
@@ -123,13 +107,12 @@
   flex-wrap: wrap;
 }
 
-/* ── Ghost / Reset button ────────────────────────────────────────────────── */
+/* ── Ghost (Reset) button ──────────────────────────────────────────────────── */
 
 .ghostBtn {
   background: none;
   border: none;
   color: var(--color-muted, #9C918A);
-  font-family: inherit;
   font-size: 13px;
   font-weight: 700;
   text-decoration: underline;
@@ -137,6 +120,7 @@
   padding: 6px 2px;
   cursor: pointer;
   transition: color 0.2s ease;
+  border-radius: 4px;
 }
 
 .ghostBtn:hover {
@@ -144,12 +128,11 @@
 }
 
 .ghostBtn:focus-visible {
-  outline: 3px solid var(--color-primary, #E4572E);
-  outline-offset: 3px;
-  border-radius: 4px;
+  outline: 2px solid var(--color-primary, #E4572E);
+  outline-offset: 2px;
 }
 
-/* ── Primary / Save button ────────────────────────────────────────────────── */
+/* ── Primary (Save) button ─────────────────────────────────────────────────── */
 
 .primaryBtn {
   background: var(--color-ink, #2B2B33);
@@ -157,7 +140,6 @@
   border: none;
   border-radius: 12px;
   padding: 12px 26px;
-  font-family: inherit;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
@@ -174,55 +156,56 @@
 }
 
 .primaryBtn:focus-visible {
-  outline: 3px solid var(--color-primary, #E4572E);
-  outline-offset: 3px;
-  border-radius: 8px;
+  outline: 2px solid var(--color-primary, #E4572E);
+  outline-offset: 2px;
 }
 
+/* Saving state — slightly dimmed while processing */
 .primaryBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.7;
   cursor: not-allowed;
   transform: none;
 }
 
-/* ── Loading spinner inside primary button ────────────────────────────────── */
+/* ── Loading state ─────────────────────────────────────────────────────────── */
 
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  margin-right: 8px;
-  vertical-align: middle;
+.loading .fieldGrid {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.loading .primaryBtn {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-/* ── Error message ─────────────────────────────────────────────────────────── */
+/* ── Error state ───────────────────────────────────────────────────────────── */
 
-.errorMsg {
-  margin-top: 12px;
-  font-size: 12.5px;
+.errorBanner {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--color-soft-tomato, #FCE4D8);
+  border: 1px solid var(--color-primary, #E4572E);
+  border-radius: 10px;
+  font-size: 13px;
   color: var(--color-primary, #E4572E);
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
+  .inputWrap,
   .primaryBtn,
   .ghostBtn {
     transition-duration: 0.01ms;
   }
-  .spinner {
-    animation-duration: 0.01ms;
+}
+
+/* ── Responsive — stack to one column on narrow screens ─────────────────── */
+
+@media (max-width: 480px) {
+  .fieldGrid {
+    grid-template-columns: 1fr;
   }
 }
