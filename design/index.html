@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pomodoro Timer</title>
+<style>
+  :root {
+    --bg: #FBF6EF;
+    --card: #FFFFFF;
+    --ink: #2B2B33;
+    --muted: #9C918A;
+    --tomato: #E4572E;
+    --tomato-deep: #C74420;
+    --tomato-soft: #FCE4D8;
+    --green: #2F9E77;
+    --green-soft: #DDF0E8;
+    --blue: #3B6FE0;
+    --blue-soft: #DDE7FB;
+    --line: #EFE6DC;
+    --track: #F1E7DB;
+    --shadow: 0 18px 50px -18px rgba(228, 87, 46, 0.25);
+    --radius: 24px;
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(228, 87, 46, 0.08), transparent 60%),
+      radial-gradient(700px 420px at -10% 110%, rgba(47, 158, 119, 0.08), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--tomato);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .brand svg { display: block; }
+
+  .daily-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 14px;
+    box-shadow: 0 4px 14px -8px rgba(43, 43, 51, 0.18);
+  }
+
+  .daily-chip .count {
+    font-weight: 800;
+    color: var(--tomato);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .daily-chip .lbl { color: var(--muted); }
+
+  /* ---------- Layout ---------- */
+  main {
+    max-width: 560px;
+    margin: 8px auto 40px;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* ---------- Timer card ---------- */
+  .timer-card {
+    padding: 34px 24px 26px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .timer-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(320px 180px at 50% 0%, rgba(228, 87, 46, 0.06), transparent 70%);
+    pointer-events: none;
+  }
+
+  .session-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    border-radius: 999px;
+    background: var(--tomato-soft);
+    color: var(--tomato-deep);
+    transition: background 0.35s ease, color 0.35s ease, transform 0.35s ease;
+    z-index: 1;
+  }
+
+  .session-pill .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .session-pill.is-green { background: var(--green-soft); color: var(--green); }
+  .session-pill.is-blue  { background: var(--blue-soft);  color: var(--blue); }
+
+  .session-pill.pulse { animation: pillPulse 0.6s ease; }
+  @keyframes pillPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---------- Ring ---------- */
+  .ring-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 22px 0 8px;
+  }
+
+  .ring-wrap svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .ring-track { fill: none; stroke: var(--track); stroke-width: 10; }
+  .ring-progress {
+    fill: none;
+    stroke: var(--tomato);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.35s ease;
+    filter: drop-shadow(0 0 6px rgba(228, 87, 46, 0.35));
+  }
+
+  .ring-wrap.is-green .ring-progress { stroke: var(--green); filter: drop-shadow(0 0 6px rgba(47, 158, 119, 0.35)); }
+  .ring-wrap.is-blue  .ring-progress { stroke: var(--blue);  filter: drop-shadow(0 0 6px rgba(59, 111, 224, 0.35)); }
+
+  .ring-wrap.is-running .ring-progress { stroke-dashoffset: inherit; }
+  .ring-wrap.is-running::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 2px solid rgba(228, 87, 46, 0.12);
+    animation: ringPulse 2.6s ease-out infinite;
+    pointer-events: none;
+  }
+  .ring-wrap.is-green.is-running::after { border-color: rgba(47, 158, 119, 0.14); }
+  .ring-wrap.is-blue.is-running::after  { border-color: rgba(59, 111, 224, 0.14); }
+  @keyframes ringPulse {
+    0%   { transform: scale(0.96); opacity: 0.9; }
+    100% { transform: scale(1.08); opacity: 0; }
+  }
+
+  .time-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .time {
+    font-size: 58px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .time-sub {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+    min-height: 18px;
+  }
+
+  .paused-badge {
+    display: none;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: #F3EDE5;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-top: 2px;
+  }
+  .is-paused .paused-badge { display: inline-block; }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 6px;
+    z-index: 1;
+  }
+
+  .start-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--tomato);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 15px 38px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    box-shadow: 0 12px 26px -10px rgba(228, 87, 46, 0.55);
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+  .start-btn:hover { background: var(--tomato-deep); transform: translateY(-1px); }
+  .start-btn:active { transform: translateY(0) scale(0.98); }
+
+  .start-btn.is-running { background: var(--ink); box-shadow: 0 12px 26px -12px rgba(43, 43, 51, 0.5); }
+  .start-btn.is-running:hover { background: #1d1d23; }
+
+  .icon-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    background: var(--card);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, background 0.2s ease;
+  }
+  .icon-btn:hover { color: var(--tomato); border-color: var(--tomato); transform: rotate(-20deg); }
+  .icon-btn:active { transform: rotate(-20deg) scale(0.94); }
+
+  /* ---------- Cycle ---------- */
+  .cycle-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 22px;
+    z-index: 1;
+  }
+
+  .cycle-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+  .dots { display: flex; gap: 10px; }
+
+  .dot-session {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--track);
+    transition: background 0.4s ease, transform 0.4s ease;
+  }
+  .dot-session.done { background: var(--tomato); transform: scale(1.15); }
+  .dot-session.active { background: var(--tomato); box-shadow: 0 0 0 4px var(--tomato-soft); }
+
+  /* ---------- Settings ---------- */
+  .settings-card {
+    padding: 26px 24px 24px;
+    border-radius: var(--radius);
+  }
+
+  .settings-card h2 {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .settings-card h2 svg { color: var(--muted); }
+
+  .settings-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .field .input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #FBF6EF;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .field .input-wrap:focus-within { border-color: var(--tomato); background: #fff; }
+
+  .field input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    outline: none;
+  }
+  .field input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+
+  .field .unit { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+  .settings-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  .ghost-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 6px 2px;
+    transition: color 0.2s ease;
+  }
+  .ghost-btn:hover { color: var(--tomato); }
+
+  .primary-btn {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 26px;
+    font-size: 14px;
+    font-weight: 800;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .primary-btn:hover { background: var(--tomato); transform: translateY(-1px); }
+  .primary-btn:active { transform: scale(0.98); }
+
+  .notif-status {
+    margin-top: 16px;
+    font-size: 12.5px;
+    color: var(--muted);
+    display: none;
+    align-items: center;
+    gap: 6px;
+  }
+  .notif-status.show { display: flex; }
+  .notif-status.warn { color: var(--tomato-deep); }
+
+  /* ---------- Footer ---------- */
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 40px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  footer kbd {
+    font-family: inherit;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    padding: 1px 7px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translate(-50%, 24px);
+    background: var(--ink);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 13px 22px;
+    border-radius: 14px;
+    box-shadow: 0 16px 40px -12px rgba(43, 43, 51, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    max-width: calc(100vw - 40px);
+    text-align: center;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast .toast-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+  .toast.tomato .toast-dot { background: var(--tomato); }
+  .toast.green  .toast-dot { background: var(--green); }
+  .toast.blue   .toast-dot { background: var(--blue); }
+  .toast.ink    .toast-dot { background: #fff; }
+
+  @media (max-width: 480px) {
+    .time { font-size: 48px; }
+    .ring-wrap { width: 224px; height: 224px; }
+    .field-grid { grid-template-columns: 1fr; }
+    .topbar { padding: 14px 16px; }
+    main { padding: 0 14px 30px; }
+    .start-btn { padding: 14px 30px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" aria-label="Pomodoro Timer">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <circle cx="14" cy="15" r="10" fill="#E4572E"/>
+      <path d="M13.5 8.5 L15.5 8.5 L15 13 L17 12.5 L13 18 L14 13.2 L12.4 13.4 Z" fill="#FBF6EF"/>
+      <path d="M14 4 C11.5 1.5 9.5 2 9.5 2 C11 4.5 10.5 6 10.5 6 C11.5 4.5 14 5 14 5" fill="#2F9E77"/>
+      <path d="M15.6 10.8 C17.5 9.6 18.4 10.8 18.4 10.8 C17.9 12.4 16.4 12.3 16.4 12.3" stroke="#2B2B33" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+    </svg>
+    <span>Pomodoro</span>
+  </div>
+  <div class="daily-chip" title="Work sessions completed today">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 2.5 L14.4 8.2 L20.5 8.9 L16 12.9 L17.2 19 L12 15.9 L6.8 19 L8 12.9 L3.5 8.9 L9.6 8.2 Z" fill="#E4572E"/>
+    </svg>
+    <span class="count" id="dailyCount">0</span>
+    <span class="lbl">work sessions today</span>
+  </div>
+</header>
+
+<main>
+  <!-- ================= TIMER ================= -->
+  <section class="card timer-card" id="timer" aria-label="Timer">
+    <span class="session-pill" id="sessionPill"><span class="dot"></span><span id="sessionName">Work</span></span>
+
+    <div class="ring-wrap" id="ringWrap">
+      <svg viewBox="0 0 260 260" role="img" aria-label="Time remaining ring">
+        <circle class="ring-track" cx="130" cy="130" r="118"></circle>
+        <circle class="ring-progress" id="ringProgress" cx="130" cy="130" r="118"></circle>
+      </svg>
+      <div class="time-center">
+        <div class="time" id="timeDisplay" aria-live="off">25:00</div>
+        <div class="time-sub" id="sessionHint">Stay focused</div>
+        <span class="paused-badge">Paused</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="icon-btn" id="resetBtn" aria-label="Reset timer" title="Reset (R)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7"/>
+          <path d="M3 4v5h5"/>
+        </svg>
+      </button>
+      <button class="start-btn" id="startBtn" aria-pressed="false">
+        <svg id="startIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M7 4.5 L20 12 L7 19.5 Z"/>
+        </svg>
+        <span id="startLabel">Start</span>
+      </button>
+    </div>
+
+    <div class="cycle-row">
+      <span class="cycle-label" id="cycleLabel">Session 1 of 4</span>
+      <div class="dots" id="cycleDots" aria-hidden="true">
+        <span class="dot-session active"></span>
+        <span class="dot-session"></span>
+        <span class="dot-session"></span>
+        <span class="dot-session"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section class="card settings-card" id="settings" aria-label="Settings">
+    <h2>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"/>
+      </svg>
+      Settings
+    </h2>
+    <p class="settings-sub">Durations are saved in this browser and applied to the current and next sessions.</p>
+
+    <div class="field-grid">
+      <div class="field">
+        <label for="inpWork">Work</label>
+        <div class="input-wrap">
+          <input type="number" id="inpWork" min="1" max="120" value="25" inputmode="numeric">
+          <span class="unit">min</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="inpShort">Short break</label>
+        <div class="input-wrap">
+          <input type="number" id="inpShort" min="1" max="60" value="5" inputmode="numeric">
+          <span class="unit">min</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="inpLong">Long break</label>
+        <div class="input-wrap">
+          <input type="number" id="inpLong" min="1" max="120" value="15" inputmode="numeric">
+          <span class="unit">min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="ghost-btn" id="defaultsBtn">Reset to defaults</button>
+      <button class="primary-btn" id="saveBtn">Save settings</button>
+    </div>
+
+    <p class="notif-status" id="notifStatus" role="status">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span id="notifStatusText"></span>
+    </p>
+  </section>
+</main>
+
+<footer>
+  <p>Press <kbd>Space</kbd> to start or pause, <kbd>R</kbd> to reset. Everything runs in your browser — no account needed.</p>
+</footer>
+
+<div class="toast" id="toast" role="status"><span class="toast-dot"></span><span id="toastText"></span></div>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Constants & state ---------- */
+  var DEFAULTS = { work: 25, short: 5, long: 15 };
+  var TYPE_META = {
+    work:  { name: "Work",       hint: "Stay focused",   className: "" },
+    short: { name: "Short Break", hint: "Grab a coffee", className: "is-green" },
+    long:  { name: "Long Break",  hint: "Take a real break", className: "is-blue" }
+  };
+  var NEXT_AFTER = { work: null, short: "work", long: "work" }; // work computed dynamically
+
+  var state = {
+    type: "work",
+    remaining: 0,        // seconds left in current session
+    total: 0,            // total seconds of current session (for the ring)
+    running: false,
+    endAt: 0,            // timestamp when the running session ends
+    tick: null,          // interval id
+    cycleDone: 0         // completed work sessions in the current 4-session cycle
+  };
+
+  var durations = loadDurations();
+  var daily = loadDaily();
+
+  /* ---------- DOM refs ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var timeDisplay = $("timeDisplay"),
+      sessionHint = $("sessionHint"),
+      sessionPill = $("sessionPill"),
+      sessionName = $("sessionName"),
+      ringWrap    = $("ringWrap"),
+      ringProg    = $("ringProgress"),
+      startBtn    = $("startBtn"),
+      startIcon   = $("startIcon"),
+      startLabel  = $("startLabel"),
+      resetBtn    = $("resetBtn"),
+      cycleLabel  = $("cycleLabel"),
+      cycleDots   = $("cycleDots").children,
+      dailyCount  = $("dailyCount"),
+      inpWork     = $("inpWork"),
+      inpShort    = $("inpShort"),
+      inpLong     = $("inpLong"),
+      saveBtn     = $("saveBtn"),
+      defaultsBtn = $("defaultsBtn"),
+      notifStatus = $("notifStatus"),
+      notifStatusText = $("notifStatusText"),
+      toast       = $("toast"),
+      toastText   = $("toastText");
+
+  var RING_C = 2 * Math.PI * 118;
+  ringProg.style.strokeDasharray = RING_C;
+
+  /* ---------- Storage helpers ---------- */
+  function loadDurations() {
+    try {
+      var raw = JSON.parse(localStorage.getItem("pomodoro.durations") || "{}");
+      var out = {};
+      ["work", "short", "long"].forEach(function (k) {
+        var v = parseInt(raw[k], 10);
+        out[k] = (v >= 1 && v <= 120) ? v : DEFAULTS[k];
+      });
+      return out;
+    } catch (e) { return Object.assign({}, DEFAULTS); }
+  }
+
+  function saveDurations() {
+    try { localStorage.setItem("pomodoro.durations", JSON.stringify(durations)); } catch (e) {}
+  }
+
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+
+  function loadDaily() {
+    try {
+      var raw = JSON.parse(localStorage.getItem("pomodoro.daily") || "null");
+      if (raw && raw.date === todayStr() && typeof raw.count === "number") {
+        return { date: raw.date, count: raw.count };
+      }
+    } catch (e) {}
+    return { date: todayStr(), count: 0 };
+  }
+
+  function saveDaily() {
+    try { localStorage.setItem("pomodoro.daily", JSON.stringify(daily)); } catch (e) {}
+  }
+
+  /* ---------- Render ---------- */
+  function fmt(sec) {
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function render() {
+    var meta = TYPE_META[state.type];
+    timeDisplay.textContent = fmt(state.remaining);
+    sessionHint.textContent = state.running ? meta.hint : (state.remaining < state.total ? "Paused" : meta.hint);
+    sessionName.textContent = meta.name;
+    sessionPill.className = "session-pill " + meta.className;
+    ringWrap.className = "ring-wrap " + meta.className + (state.running ? " is-running" : "");
+    ringWrap.classList.toggle("is-paused", !state.running && state.remaining < state.total);
+
+    var prog = state.total > 0 ? 1 - (state.remaining / state.total) : 0;
+    ringProg.style.strokeDashoffset = RING_C * (1 - prog);
+    ringProg.style.transition = state.running ? "stroke-dashoffset 1s linear" : "stroke-dashoffset 0.4s ease";
+
+    startLabel.textContent = state.running ? "Pause" : "Start";
+    startBtn.classList.toggle("is-running", state.running);
+    startBtn.setAttribute("aria-pressed", state.running ? "true" : "false");
+    startIcon.innerHTML = state.running
+      ? '<path d="M7 4.5 L9.5 4.5 L9.5 19.5 L7 19.5 Z M14.5 4.5 L17 4.5 L17 19.5 L14.5 19.5 Z"/>'
+      : '<path d="M7 4.5 L20 12 L7 19.5 Z"/>';
+
+    cycleLabel.textContent = "Session " + (state.cycleDone + 1) + " of 4";
+    for (var i = 0; i < 4; i++) {
+      cycleDots[i].className = "dot-session" + (i < state.cycleDone ? " done" : "") + (i === state.cycleDone ? " active" : "");
+    }
+
+    dailyCount.textContent = daily.count;
+  }
+
+  /* ---------- Sound ---------- */
+  var audioCtx = null;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playChime() {
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    [0, 0.22, 0.44].forEach(function (delay, i) {
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = i === 2 ? 880 : 660;
+      gain.gain.setValueAtTime(0.0001, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.2);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.24);
+    });
+  }
+
+  /* ---------- Notification ---------- */
+  function ensureNotificationPermission() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") Notification.requestPermission().then(updateNotifStatus);
+  }
+
+  function updateNotifStatus() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "denied") {
+      notifStatusText.textContent = "Browser notifications are blocked — you will get sound only. Allow notifications in your browser settings.";
+      notifStatus.className = "notif-status show warn";
+    } else {
+      notifStatus.className = "notif-status";
+    }
+  }
+
+  function notifySessionEnd(finishedName, nextName) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    try {
+      new Notification("Pomodoro Timer", {
+        body: finishedName + " finished — time for a " + nextName.toLowerCase() + "."
+      });
+    } catch (e) {}
+  }
+
+  /* ---------- Timer core ---------- */
+  function startSession(type) {
+    state.type = type;
+    state.total = durations[type] * 60;
+    state.remaining = state.total;
+    state.running = false;
+    stopTicking();
+    render();
+  }
+
+  function stopTicking() {
+    if (state.tick) { clearInterval(state.tick); state.tick = null; }
+    state.running = false;
+  }
+
+  function tickLoop() {
+    state.tick = setInterval(function () {
+      var left = Math.max(0, Math.round((state.endAt - Date.now()) / 1000));
+      if (left !== state.remaining) {
+        state.remaining = left;
+        render();
+      }
+      if (left <= 0) {
+        stopTicking();
+        onSessionEnd();
+      }
+    }, 200);
+  }
+
+  function toggleStart() {
+    ensureAudio(); // unlock audio on the user gesture
+    if (state.running) {
+      // pause
+      state.remaining = Math.max(0, Math.round((state.endAt - Date.now()) / 1000));
+      stopTicking();
+      render();
+      return;
+    }
+    if (state.remaining <= 0) startSession(state.type);
+    state.running = true;
+    state.endAt = Date.now() + state.remaining * 1000;
+    ensureNotificationPermission();
+    tickLoop();
+    render();
+  }
+
+  function resetTimer() {
+    stopTicking();
+    state.remaining = state.total;
+    render();
+  }
+
+  function onSessionEnd() {
+    var finished = TYPE_META[state.type].name;
+    playChime();
+
+    if (state.type === "work") {
+      state.cycleDone++;
+      if (daily.date !== todayStr()) { daily = { date: todayStr(), count: 0 }; }
+      daily.count++;
+      saveDaily();
+      render();
+
+      var nextType = (state.cycleDone % 4 === 0) ? "long" : "short";
+      var nextName = TYPE_META[nextType].name;
+      showToast(finished + " complete — time for a " + nextName.toLowerCase() + "!", nextType === "long" ? "blue" : "green");
+      notifySessionEnd(finished, nextName);
+      startSession(nextType);
+      if (nextType === "long") showToast("Cycle complete! You earned a " + nextName.toLowerCase() + ".", "blue", 5200);
+    } else {
+      var workName = TYPE_META.work.name;
+      showToast("Break over — back to " + workName.toLowerCase() + ".", "tomato");
+      notifySessionEnd(finished, workName);
+      startSession("work");
+    }
+  }
+
+  /* ---------- Toast ---------- */
+  var toastTimer = null;
+  function showToast(msg, tone, ms) {
+    toast.className = "toast show " + (tone || "ink");
+    toastText.textContent = msg;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.className = "toast " + (tone || "ink");
+    }, ms || 4200);
+  }
+
+  /* ---------- Settings ---------- */
+  function readInput(id) {
+    var v = parseInt($(id).value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    if (v > 120) v = 120;
+    return v;
+  }
+
+  function saveSettings() {
+    var w = readInput("inpWork"), s = readInput("inpShort"), l = readInput("inpLong");
+    inpWork.value = w; inpShort.value = s; inpLong.value = l;
+    durations = { work: w, short: s, long: l };
+    saveDurations();
+    // Apply immediately: restart the current session with its new duration, stopped.
+    stopTicking();
+    state.total = durations[state.type] * 60;
+    state.remaining = state.total;
+    render();
+    showToast("Settings saved — applied to the current session.", "ink");
+  }
+
+  function resetDefaults() {
+    durations = Object.assign({}, DEFAULTS);
+    saveDurations();
+    inpWork.value = DEFAULTS.work;
+    inpShort.value = DEFAULTS.short;
+    inpLong.value = DEFAULTS.long;
+    stopTicking();
+    state.total = durations[state.type] * 60;
+    state.remaining = state.total;
+    render();
+    showToast("Restored the classic 25 / 5 / 15 schedule.", "ink");
+  }
+
+  /* ---------- Events ---------- */
+  startBtn.addEventListener("click", toggleStart);
+  resetBtn.addEventListener("click", resetTimer);
+  saveBtn.addEventListener("click", saveSettings);
+  defaultsBtn.addEventListener("click", resetDefaults);
+
+  ["inpWork", "inpShort", "inpLong"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (e) {
+      if (e.key === "Enter") saveSettings();
+    });
+  });
+
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "button") return;
+    if (e.code === "Space" || e.key === " ") { e.preventDefault(); toggleStart(); }
+    if (e.key === "r" || e.key === "R") resetTimer();
+  });
+
+  /* ---------- Init ---------- */
+  inpWork.value = durations.work;
+  inpShort.value = durations.short;
+  inpLong.value = durations.long;
+  if (daily.date !== todayStr()) { daily = { date: todayStr(), count: 0 }; saveDaily(); }
+  startSession("work");
+  updateNotifStatus();
+})();
+</script>
+</body>
+</html>
