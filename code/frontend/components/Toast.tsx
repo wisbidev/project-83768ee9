@@ -2,15 +2,16 @@
 
 import { useEffect, useRef } from 'react';
 import styles from './Toast.module.css';
+import type { ToastVariant } from './Toast.module.css';
 
-export type ToastVariant = 'tomato' | 'green' | 'blue' | 'ink';
+export type ToastVariantColor = 'tomato' | 'green' | 'blue' | 'ink';
 
 export interface ToastProps {
   message: string;
-  variant?: ToastVariant;
-  /** Controls visibility. Unmounts after the animation completes. */
+  variant?: ToastVariantColor;
+  /** Controls visibility. Component unmounts (returns null) when not visible. */
   visible: boolean;
-  /** Auto-dismiss delay in ms. Default 3000. Set to 0 to disable auto-dismiss. */
+  /** Auto-dismiss delay in ms. Default 3000. Set to 0 to disable. */
   duration?: number;
   onDismiss?: () => void;
 }
