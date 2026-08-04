@@ -1,122 +1,54 @@
 /**
- * Mock data module — Countdown display and session type
+ * Mock data — Countdown display and session type (Story 1)
  *
- * Shape mirrors the API contract the backend must satisfy.
- * Replace this file to wire real API calls; no other file needs changing.
+ * This module is the ONLY place mock data lives for this story.
+ * Its shape is the contract the backend must satisfy.
+ *
+ * Initial state on page load:
+ *   sessionType = 'work'
+ *   remainingSeconds = 1500  (25 × 60)
+ *   totalSeconds = 1500      (full duration — no time has elapsed)
+ *   timerStatus = 'idle'    (not running; paused at full duration)
  */
 
-// ── Domain types ──────────────────────────────────────────────────────────────
+import type { SessionType, TimerState } from './timer-types';
 
-export type SessionType = 'work' | 'short' | 'long';
+// ─── Domain types ─────────────────────────────────────────────────────────────
 
-export interface TimerState {
-  sessionType: SessionType;
-  remainingSeconds: number;
-  /** Total session duration in seconds — used to compute ring progress */
-  totalSeconds: number;
-  /** idle = paused at full duration, no ticking yet */
-  status: 'idle' | 'running' | 'paused';
-}
+export type { SessionType } from './timer-types';
+
+// ─── Initial session state ─────────────────────────────────────────────────────
+
+/**
+ * The timer state returned by the "get current session" API endpoint.
+ * Shaped to match what a real API would return.
+ */
+export const INITIAL_TIMER_STATE: TimerState = {
+  sessionType: 'work',
+  remainingSeconds: 25 * 60,   // 1500
+  totalSeconds: 25 * 60,        // 1500 — full duration; no time elapsed yet
+  status: 'idle',               // paused at full duration; nothing ticks yet
+};
+
+// ─── Session metadata ─────────────────────────────────────────────────────────
 
 export interface SessionMeta {
-  label: string;
-  hint: string;
-  pillClass: string;
-  ringClass: string;
+  label: string;       // displayed in the pill, e.g. "Work"
+  hint: string;        // sub-label below the countdown, e.g. "Stay focused"
+  colorClass: string;  // CSS class applied to the pill / ring wrapper
 }
 
-// ── Session metadata ───────────────────────────────────────────────────────────
-
+/** Metadata for each session type — maps enum → display strings + colour class. */
 export const SESSION_META: Record<SessionType, SessionMeta> = {
-  work: {
-    label: 'Work',
-    hint: 'Stay focused',
-    pillClass: '',
-    ringClass: '',
-  },
-  short: {
-    label: 'Short Break',
-    hint: 'Grab a coffee',
-    pillClass: 'is-green',
-    ringClass: 'is-green',
-  },
-  long: {
-    label: 'Long Break',
-    hint: 'Take a real break',
-    pillClass: 'is-blue',
-    ringClass: 'is-blue',
-  },
+  work:  { label: 'Work',        hint: 'Stay focused',       colorClass: '' },
+  short: { label: 'Short Break', hint: 'Grab a coffee',      colorClass: 'is-green' },
+  long:  { label: 'Long Break',  hint: 'Take a real break',  colorClass: 'is-blue' },
 };
 
-// ── Duration constants ─────────────────────────────────────────────────────────
+// ─── Default durations ─────────────────────────────────────────────────────────
 
-export const DEFAULT_WORK_DURATION_MINUTES = 25;
-
-export const DURATIONS: Record<SessionType, number> = {
-  work:  DEFAULT_WORK_DURATION_MINUTES * 60, // 1500 s
-  short: 5  * 60,                             // 300 s
-  long:  15 * 60,                             // 900 s
-};
-
-// ── Initial state ─────────────────────────────────────────────────────────────
-
-export const INITIAL_STATE: TimerState = {
-  sessionType: 'work',
-  remainingSeconds: DURATIONS.work,
-  totalSeconds: DURATIONS.work,
-  status: 'idle',
-};
-
-// ── API response shapes ────────────────────────────────────────────────────────
-
-/** Successful response */
-export interface TimerResponse {
-  data: TimerState;
-}
-
-/** Loading state */
-export interface LoadingState {
-  loading: true;
-}
-
-/** Error state */
-export interface ErrorState {
-  error: true;
-  message: string;
-}
-
-/** Union of all possible API result shapes */
-export type TimerResult = TimerResponse | LoadingState | ErrorState;
-
-// ── Mock fetch helpers ─────────────────────────────────────────────────────────
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Returns the initial timer state after a simulated network delay */
-export async function fetchInitialTimer(): Promise<TimerResponse> {
-  await delay(400);
-  return { data: { ...INITIAL_STATE } };
-}
-
-/** Returns a loading state */
-export async function fetchTimerLoading(): Promise<LoadingState> {
-  await delay(0);
-  return { loading: true };
-}
-
-/** Returns an error state */
-export async function fetchTimerError(): Promise<ErrorState> {
-  await delay(300);
-  return { error: true, message: 'Unable to load timer. Please refresh.' };
-}
-
-// ── Format helpers ─────────────────────────────────────────────────────────────
-
-/** Format seconds as MM:SS with zero-padded minutes and seconds */
-export function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
+export const DEFAULT_DURATIONS = {
+  work:  25,
+  short:  5,
+  long:  15,
+} as const;
