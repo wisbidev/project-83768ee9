@@ -16,8 +16,7 @@
 
 import { useState } from 'react';
 import {
-  INITIAL_TIMER_STATE,
-  SESSION_META,
+  MOCK_INITIAL_STATE,
   type SessionType,
 } from '../lib/mock/countdown-display-and-session-type';
 import SessionPill from './SessionPill';
@@ -26,11 +25,9 @@ import CountdownDisplay from './CountdownDisplay';
 import styles from './TimerCard.module.css';
 
 export default function TimerCard() {
-  const [sessionType]       = useState<SessionType>(INITIAL_TIMER_STATE.sessionType);
-  const [remainingSeconds]  = useState(INITIAL_TIMER_STATE.remainingSeconds);
-  const [totalSeconds]      = useState(INITIAL_TIMER_STATE.totalSeconds);
-
-  const meta = SESSION_META[sessionType];
+  const [sessionType]       = useState<SessionType>(MOCK_INITIAL_STATE.sessionType);
+  const [remainingSeconds]  = useState(MOCK_INITIAL_STATE.remainingSeconds);
+  const [totalSeconds]      = useState(MOCK_INITIAL_STATE.totalSeconds);
 
   return (
     <section
@@ -53,8 +50,8 @@ export default function TimerCard() {
         <div className={styles.ringCenter}>
           <CountdownDisplay
             remainingSeconds={remainingSeconds}
+            totalSeconds={totalSeconds}
             sessionType={sessionType}
-            ariaLive="off"
           />
         </div>
       </div>
