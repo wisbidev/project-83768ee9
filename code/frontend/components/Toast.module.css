@@ -1,10 +1,12 @@
 /* Toast — fixed-position confirmation message */
 
+/* ── Base state: hidden (off-screen) ──────────────────────────────────────── */
+
 .toast {
   position: fixed;
   left: 50%;
   bottom: 26px;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 24px);
   background: var(--color-ink, #2B2B33);
   color: #ffffff;
   font-size: 14px;
@@ -12,8 +14,8 @@
   padding: 13px 22px;
   border-radius: 14px;
   box-shadow: 0 16px 40px -12px rgba(43, 43, 51, 0.5);
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   transition:
     opacity 0.3s ease,
     transform 0.3s ease;
@@ -22,10 +24,18 @@
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 0;
 }
 
-/* Variant dot */
+/* ── Visible / show state ────────────────────────────────────────────────── */
+
+.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+/* ── Variant dot ────────────────────────────────────────────────────────── */
+
 .dot {
   display: inline-block;
   width: 8px;
@@ -36,15 +46,18 @@
   background: #ffffff;
 }
 
-/* Variant backgrounds */
+/* ── Variant backgrounds ─────────────────────────────────────────────────── */
+
 .tomato { background: var(--color-primary, #E4572E); }
 .green  { background: var(--color-short,   #2F9E77); }
 .blue   { background: var(--color-long,    #3B6FE0); }
 .ink    { background: var(--color-ink,     #2B2B33); }
 
-/* Reduced motion — instant appearance */
+/* ── Reduced motion — instant appearance ─────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
-  .toast {
+  .toast,
+  .visible {
     transition: opacity 0.01ms;
   }
 }
