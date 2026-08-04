@@ -12,6 +12,9 @@
   --color-ink:     #2B2B33;  /* body text, running Pause button       */
   --color-short:   #2F9E77;  /* Short Break session                  */
   --color-long:    #3B6FE0;  /* Long Break session                    */
+  /* Design tokens from design/index.html */
+  --color-line:   #EFE6DC;  /* card/input borders                    */
+  --color-muted:  #9C918A;  /* icon, label text                     */
 }
 
 /* ── Base reset ─────────────────────────────────────────────────────────────── */
