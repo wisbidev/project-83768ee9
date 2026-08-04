@@ -79,6 +79,15 @@ function playChime(audioCtx: AudioContext): void {
   });
 }
 
+/**
+ * Formats the next session label for use in a notification body.
+ * Per SRS §4.4 and AC-5: "Work finished — time for a short break."
+ * Both "short" and "long" start with a consonant, so "a" is always correct.
+ */
+function formatNextLabel(label: string): string {
+  return 'a ' + label.toLowerCase();
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface SessionEndNotifierProps {
@@ -170,8 +179,7 @@ export default function SessionEndNotifier({
       // ── 2. Show browser notification ────────────────────────────────────
       if (notificationsSupported() && Notification.permission === 'granted') {
         try {
-          const nextLabel = labels[next];
-          const nextLabelLower = nextLabel.charAt(0).toLowerCase() + nextLabel.slice(1);
+          const nextLabelLower = formatNextLabel(labels[next]);
           new Notification('Pomodoro Timer', {
             body: `${labels[finished]} finished — time for ${nextLabelLower}.`,
           });
