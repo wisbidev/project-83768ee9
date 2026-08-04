@@ -64,8 +64,9 @@ export default function Page() {
   function onTimerSessionEnd() {
     if (sessionType === 'work') {
       // Increment the daily counter and persist to localStorage.
-      incrementDailyCount();
-      setDailyCount((c) => c + 1);
+      // Use the returned value — avoids stale React state on day boundary.
+      const newCount = incrementDailyCount();
+      setDailyCount(newCount);
       // Advance the cycle counter.
       workCountRef.current += 1;
     } else {
