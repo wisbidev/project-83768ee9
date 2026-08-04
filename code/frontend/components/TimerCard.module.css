@@ -1,11 +1,28 @@
-/* TimerCard — main timer display card */
+/**
+ * TimerCard styles — tokens from design/index.html.
+ *
+ * Layout: centred column, card with border-radius, shadow, padding.
+ * Background uses a subtle radial gradient accent per design prototype.
+ *
+ * Brand colours (CSS vars in globals.css):
+ *   --color-primary  #E4572E  tomato
+ *   --color-cream    #FBF6EF
+ *   --color-ink      #2B2B33
+ *   --color-short    #2F9E77  green
+ *   --color-long     #3B6FE0  blue
+ *
+ * Design prototype tokens:
+ *   --card:    #FFFFFF
+ *   --line:    #EFE6DC
+ *   --shadow:  0 18px 50px -18px rgba(228, 87, 46, 0.25)
+ *   --radius:  24px
+ */
 
-/* ── Card shell ─────────────────────────────────────────────────────────────── */
 .card {
-  background: #ffffff;
-  border: 1px solid #EFE6DC;
-  border-radius: 24px;
-  box-shadow: 0 18px 50px -18px rgba(228, 87, 46, 0.25);
+  background: #FFFFFF;      /* --card */
+  border: 1px solid #EFE6DC; /* --line */
+  border-radius: 24px;       /* --radius */
+  box-shadow: 0 18px 50px -18px rgba(228, 87, 46, 0.25); /* --shadow */
   padding: 34px 24px 26px;
   display: flex;
   flex-direction: column;
@@ -13,108 +30,43 @@
   text-align: center;
   position: relative;
   overflow: hidden;
-  max-width: 560px;
-  width: 100%;
-  margin: 0 auto;
+  /* Subtle radial gradient accent at top */
 }
 
+/* Radial gradient accent — above the card content, behind the pill/ring */
 .card::before {
   content: "";
   position: absolute;
   inset: 0;
   background: radial-gradient(320px 180px at 50% 0%, rgba(228, 87, 46, 0.06), transparent 70%);
   pointer-events: none;
+  border-radius: inherit;
 }
 
-/* ── Ring ───────────────────────────────────────────────────────────────────── */
-.ringWrap {
+/* Container for the ring and overlaid countdown */
+.ringContainer {
   position: relative;
   width: 260px;
   height: 260px;
   margin: 22px 0 8px;
 }
 
-.ringWrap svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.track {
-  fill: none;
-  stroke: #F1E7DB;
-  stroke-width: 10;
-}
-
-.progress {
-  fill: none;
-  stroke: #E4572E;
-  stroke-width: 10;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1s linear, stroke 0.35s ease;
-  filter: drop-shadow(0 0 6px rgba(228, 87, 46, 0.35));
-}
-
-.progressGreen {
-  stroke: #2F9E77;
-  filter: drop-shadow(0 0 6px rgba(47, 158, 119, 0.35));
-}
-
-.progressBlue {
-  stroke: #3B6FE0;
-  filter: drop-shadow(0 0 6px rgba(59, 111, 224, 0.35));
-}
-
-/* ── Center overlay ─────────────────────────────────────────────────────────── */
-.center {
+/* Countdown text overlaid at the exact centre of the ring */
+.ringCenter {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
 }
 
-.time {
-  font-size: 58px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  color: #2B2B33;
-}
-
-.hint {
-  font-size: 13px;
-  color: #9C918A;
-  font-weight: 600;
-  min-height: 18px;
-}
-
-.pausedBadge {
-  display: none;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #9C918A;
-  background: #F3EDE5;
-  padding: 3px 10px;
-  border-radius: 999px;
-  margin-top: 2px;
-}
-
-.isPaused .pausedBadge {
-  display: inline-block;
-}
-
-/* ── Responsive ─────────────────────────────────────────────────────────────── */
+/* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
-  .time {
-    font-size: 48px;
+  .card {
+    padding: 28px 20px 22px;
   }
-  .ringWrap {
+
+  .ringContainer {
     width: 224px;
     height: 224px;
   }
