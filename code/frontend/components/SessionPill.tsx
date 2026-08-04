@@ -24,13 +24,18 @@ export interface SessionPillProps {
 export default function SessionPill({ sessionType, ariaLabel }: SessionPillProps) {
   const meta = SESSION_META[sessionType];
 
+  const variantClass =
+    sessionType === 'short' ? styles.isGreen
+    : sessionType === 'long' ? styles.isBlue
+    : '';
+
   return (
     <span
-      className={`${styles.pill} ${meta.colorClass ? styles[meta.colorClass] : ''}`}
-      aria-label={ariaLabel ?? meta.label}
+      className={`${styles.pill} ${variantClass}`}
+      aria-label={ariaLabel ?? meta.name}
     >
       <span className={styles.dot} aria-hidden="true" />
-      {meta.label}
+      {meta.name}
     </span>
   );
 }
