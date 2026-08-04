@@ -1,0 +1,39 @@
+/**
+ * CountdownDisplay styles — tokens from design/index.html.
+ *
+ * Font: Inter (loaded via Next.js font or CDN fallback).
+ * Tabular nums prevent layout shift as digits change.
+ */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Large MM:SS readout */
+.time {
+  font-size: 58px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-ink); /* #2B2B33 */
+}
+
+/* Sub-label — muted hint text */
+.hint {
+  font-size: 13px;
+  color: #9C918A; /* --muted from design prototype */
+  font-weight: 600;
+  min-height: 18px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .time {
+    font-size: 48px;
+  }
+}
