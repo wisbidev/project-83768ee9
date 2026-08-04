@@ -15,7 +15,7 @@ export type ToastVariant = 'tomato' | 'green' | 'blue' | 'ink';
 export interface ToastProps {
   message: string;
   variant?: ToastVariant;
-  /** Controls visibility. Component unmounts (returns null) when not visible. */
+  /** Controls visibility via CSS class toggle. */
   visible: boolean;
   /** Auto-dismiss delay in ms. Default 3000. Set to 0 to disable. */
   duration?: number;
@@ -45,11 +45,9 @@ export default function Toast({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, duration]);
 
-  if (!visible) return null;
-
   return (
     <div
-      className={`${styles.toast} ${styles[variant]}`}
+      className={`${styles.toast} ${visible ? styles.visible : ''} ${styles[variant]}`}
       role="status"
       aria-live="polite"
     >
