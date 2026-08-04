@@ -1,0 +1,59 @@
+/**
+ * ProgressRing styles — tokens from globals.css and design/index.html.
+ *
+ * Ring geometry: r=118, viewBox 260×260, stroke-width 10.
+ * Circumference ≈ 741.23.
+ *
+ * Brand colours (CSS vars in globals.css):
+ *   --color-primary  tomato  #E4572E  Work (default)
+ *   --color-short    green   #2F9E77  Short Break
+ *   --color-long     blue    #3B6FE0  Long Break
+ */
+
+.ringWrap {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  /* margin set by parent */
+}
+
+.ringSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);  /* start at top */
+}
+
+/* Track — muted background ring */
+.ringTrack {
+  fill: none;
+  stroke: #F1E7DB; /* --track from design prototype */
+  stroke-width: 10;
+}
+
+/* Progress — coloured stroke, shrinks clockwise as time elapses */
+.ringProgress {
+  fill: none;
+  stroke: var(--color-primary); /* tomato #E4572E */
+  stroke-width: 10;
+  stroke-linecap: round;
+  /* transition on dashoffset is handled by the SVG attribute (CSS transition
+     on the attribute works in modern browsers; the JS sets the value) */
+}
+
+/* Short Break — green */
+.isGreen .ringProgress {
+  stroke: var(--color-short); /* green #2F9E77 */
+}
+
+/* Long Break — blue */
+.isBlue .ringProgress {
+  stroke: var(--color-long); /* blue #3B6FE0 */
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .ringWrap {
+    width: 224px;
+    height: 224px;
+  }
+}

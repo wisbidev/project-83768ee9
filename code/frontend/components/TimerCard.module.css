@@ -1,0 +1,73 @@
+/**
+ * TimerCard styles — tokens from design/index.html.
+ *
+ * Layout: centred column, card with border-radius, shadow, padding.
+ * Background uses a subtle radial gradient accent per design prototype.
+ *
+ * Brand colours (CSS vars in globals.css):
+ *   --color-primary  #E4572E  tomato
+ *   --color-cream    #FBF6EF
+ *   --color-ink      #2B2B33
+ *   --color-short    #2F9E77  green
+ *   --color-long     #3B6FE0  blue
+ *
+ * Design prototype tokens:
+ *   --card:    #FFFFFF
+ *   --line:    #EFE6DC
+ *   --shadow:  0 18px 50px -18px rgba(228, 87, 46, 0.25)
+ *   --radius:  24px
+ */
+
+.card {
+  background: #FFFFFF;      /* --card */
+  border: 1px solid #EFE6DC; /* --line */
+  border-radius: 24px;       /* --radius */
+  box-shadow: 0 18px 50px -18px rgba(228, 87, 46, 0.25); /* --shadow */
+  padding: 34px 24px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  /* Subtle radial gradient accent at top */
+}
+
+/* Radial gradient accent — above the card content, behind the pill/ring */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(320px 180px at 50% 0%, rgba(228, 87, 46, 0.06), transparent 70%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Container for the ring and overlaid countdown */
+.ringContainer {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 22px 0 8px;
+}
+
+/* Countdown text overlaid at the exact centre of the ring */
+.ringCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .card {
+    padding: 28px 20px 22px;
+  }
+
+  .ringContainer {
+    width: 224px;
+    height: 224px;
+  }
+}
