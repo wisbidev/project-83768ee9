@@ -51,15 +51,17 @@ function writeStorage(count: number, date: string): void {
 
 /**
  * Increments the daily Work-session counter and persists the result.
+ * Returns the new count so callers can update state without stale reads.
  * Call this after a Work session ends.
  */
-export function incrementDailyCount(): void {
+export function incrementDailyCount(): number {
   const today = todayDate();
   const stored = readStorage();
   const storedDate = stored?.date ?? today;
   const currentCount = storedDate !== today ? 0 : (stored?.count ?? 0);
   const next = currentCount + 1;
   writeStorage(next, today);
+  return next;
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
