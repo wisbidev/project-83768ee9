@@ -1,0 +1,47 @@
+/**
+ * SessionPill styles — tokens from globals.css and design/index.html.
+ *
+ * Brand colours (CSS vars defined in globals.css):
+ *   --color-primary  tomato  #E4572E  Work
+ *   --color-short    green   #2F9E77  Short Break
+ *   --color-long      blue    #3B6FE0  Long Break
+ *
+ * Soft tints (approximate from design prototype):
+ *   tomato → #FCE4D8
+ *   green  → #DDF0E8
+ *   blue   → #DDE7FB
+ */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: #FCE4D8;   /* tomato soft */
+  color: #C74420;        /* tomato deep */
+  z-index: 1;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Short Break — green */
+.isGreen {
+  background: #DDF0E8;
+  color: #2F9E77;
+}
+
+/* Long Break — blue */
+.isBlue {
+  background: #DDE7FB;
+  color: #3B6FE0;
+}
