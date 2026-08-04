@@ -49,9 +49,11 @@ function initDailyCount(): number {
 export default function Page() {
   const [sessionType, setSessionType] = useState<SessionType>('work');
   const [dailyCount, setDailyCount] = useState(0);
-  // Number of completed work sessions in the current cycle (0–3 before long break).
-  // Resets to 0 after every Long Break.
-  const [cycleCompletedWork, setCycleCompletedWork] = useState(0);
+
+  // Tracks work sessions in the current cycle (0–3 before long break).
+  // Resets to 0 after every Long Break; carried as a mutable local so
+  // nextSessionType always sees the current value, not a stale closure.
+  const workCountRef = { current: 0 };
 
   // Initialise daily counter from localStorage on mount.
   useEffect(() => {
@@ -64,14 +66,14 @@ export default function Page() {
       // Increment the daily counter and persist to localStorage.
       incrementDailyCount();
       setDailyCount((c) => c + 1);
-      // Advance the cycle counter; long break fires when this was session 4.
-      setCycleCompletedWork((n) => n + 1);
+      // Advance the cycle counter.
+      workCountRef.current += 1;
     } else {
       // After any break, cycle position resets.
-      setCycleCompletedWork(0);
+      workCountRef.current = 0;
     }
-    // Advance to the next session type.
-    setSessionType((prev) => nextSessionType(prev, cycleCompletedWork));
+    // Advance to the next session type using the fresh work count.
+    setSessionType((prev) => nextSessionType(prev, workCountRef.current));
   }
 
   return (
