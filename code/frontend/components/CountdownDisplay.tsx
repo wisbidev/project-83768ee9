@@ -16,8 +16,6 @@
 import { useState } from 'react';
 import {
   MOCK_INITIAL_STATE,
-  MOCK_LOADING_STATE,
-  MOCK_ERROR_STATE,
   SESSION_META,
   formatTime,
   progressFraction,
@@ -55,10 +53,10 @@ export default function CountdownDisplay({
   //   { error }       → error fallback
   //
   // In a real app these would come from a useQuery / fetch call.
-  // Here they are toggled via React state so the loading / error UI is
+  // Here they are stored in state so the loading / error UI can be
   // exercised during development and QA.
 
-  const [state, setState] = useState<TimerState | LoadingState | ErrorState>(
+  const [state] = useState<TimerState | LoadingState | ErrorState>(
     initialState ?? MOCK_INITIAL_STATE
   );
 
@@ -71,7 +69,8 @@ export default function CountdownDisplay({
   const sessionMeta = timer ? SESSION_META[timer.sessionType] : null;
   const displayTime = timer ? formatTime(timer.remainingSeconds) : null;
 
-  // Progress ring stroke-dashoffset: 0 = full ring (100 % remaining), full dasharray = empty.
+  // Progress ring stroke-dashoffset: 0 = full ring (100 % remaining),
+  // RING_CIRCUMFERENCE = empty.
   const dashOffset = timer
     ? RING_CIRCUMFERENCE * (1 - progressFraction(timer))
     : 0;
@@ -139,7 +138,7 @@ export default function CountdownDisplay({
           )}
         </svg>
 
-        {/* Time readout centered inside the ring */}
+        {/* Time readout centred inside the ring */}
         <div className={styles.timeCenter}>
           {isLoading ? (
             <>
@@ -174,7 +173,7 @@ export default function CountdownDisplay({
         <span className="sr-only">
           {progressFraction(timer) === 1
             ? `Timer ready. ${sessionMeta?.name} session, ${displayTime} remaining.`
-            : `${progressFraction(timer) * 100}% of ${sessionMeta?.name} session remaining.`}
+            : `${Math.round(progressFraction(timer) * 100)}% of ${sessionMeta?.name} session remaining.`}
         </span>
       )}
     </section>
